@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, CreditCard, FileText, LayoutDashboard, MessageCircleMore, Rows3, Search, SquareLibrary, Users } from "lucide-react";
+import { Bell, ChevronDown, FileText, LayoutDashboard, MessageCircleMore, Rows3, Search, SquareLibrary, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -8,9 +8,9 @@ import { Button } from "../ui/button";
 const mobileLinks = [
   { label: "Dashboard", to: "/librarian", icon: LayoutDashboard },
   { label: "Students", to: "/librarian/students", icon: Users },
+  { label: "Registration", to: "/librarian/registration", icon: UserPlus },
   { label: "Seats", to: "/librarian/seats", icon: Rows3 },
   { label: "Attendance", to: "/librarian/attendance", icon: SquareLibrary },
-  { label: "Payments", to: "/librarian/payments", icon: CreditCard },
   { label: "Documents", to: "/librarian/documents", icon: FileText },
   { label: "Chat", to: "/librarian/chat", icon: MessageCircleMore },
 ];

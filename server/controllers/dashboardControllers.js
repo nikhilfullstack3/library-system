@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+const crypto = require("crypto");
 const Attendance = require("../models/Attendance");
 const ChatMessage = require("../models/ChatMessage");
 const Document = require("../models/Document");
@@ -6,12 +8,44 @@ const Librarian = require("../models/Librarian");
 const Payment = require("../models/Payment");
 const Seat = require("../models/Seat");
 const Student = require("../models/Student");
+const SuperAdmin = require("../models/SuperAdmin");
 const { hashPassword } = require("../utils/password");
+const { emitLibraryEvent } = require("../socket");
+const { saveUpload } = require("../services/storage");
 
 const DEFAULT_SEAT_COUNT = 24;
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 25;
+const MAX_LIMIT = 100;
+const DASHBOARD_PREVIEW_LIMIT = 12;
+const CHAT_MESSAGE_LIMIT = 100;
+const QR_SECRET = process.env.QR_SECRET || process.env.SESSION_SECRET || "library-system-qr-secret";
 
 function toDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
+}
+
+function getQrPayload(libraryId, dateKey = toDateKey()) {
+  const body = `${libraryId}:${dateKey}`;
+  const signature = crypto.createHmac("sha256", QR_SECRET).update(body).digest("base64url");
+  return `LIBQR.${Buffer.from(body).toString("base64url")}.${signature}`;
+}
+
+function verifyQrPayload(token = "", libraryId) {
+  const [prefix, encodedBody, signature] = String(token).split(".");
+  if (prefix !== "LIBQR" || !encodedBody || !signature) {
+    return false;
+  }
+
+  const body = Buffer.from(encodedBody, "base64url").toString("utf8");
+  const expectedSignature = crypto.createHmac("sha256", QR_SECRET).update(body).digest("base64url");
+
+  if (signature !== expectedSignature) {
+    return false;
+  }
+
+  const [tokenLibraryId, dateKey] = body.split(":");
+  return tokenLibraryId === String(libraryId) && dateKey === toDateKey();
 }
 
 function formatMonth(date = new Date()) {
@@ -25,6 +59,24 @@ function getNextPaymentDate() {
   const next = new Date();
   next.setMonth(next.getMonth() + 1, 5);
   return next;
+}
+
+function getDefaultShiftTiming(shift = "") {
+  const normalizedShift = String(shift || "").trim().toLowerCase();
+
+  if (normalizedShift === "morning") {
+    return "8:00 AM - 2:00 PM";
+  }
+
+  if (normalizedShift === "evening") {
+    return "2:00 PM - 8:00 PM";
+  }
+
+  if (normalizedShift === "full day") {
+    return "8:00 AM - 8:00 PM";
+  }
+
+  return "8:00 AM - 8:00 PM";
 }
 
 function formatTime(value) {
@@ -43,6 +95,52 @@ function parseSeatNumber(value) {
   return digits ? Number(digits[0]) : null;
 }
 
+function parsePositiveNumber(value, fallback, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
+}
+
+function buildPagination(page, limit, total) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+    hasNextPage: page * limit < total,
+    hasPreviousPage: page > 1,
+  };
+}
+
+function toObjectId(value) {
+  return new mongoose.Types.ObjectId(String(value));
+}
+
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getPageOptions(query, defaultLimit = DEFAULT_LIMIT) {
+  const page = parsePositiveNumber(query.page, DEFAULT_PAGE);
+  const limit = parsePositiveNumber(query.limit, defaultLimit, MAX_LIMIT);
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+}
+
+function buildPaginatedResponse(items, page, limit, total) {
+  return {
+    items,
+    pagination: buildPagination(page, limit, total),
+  };
+}
+
 function buildStudentPayload(student) {
   return {
     id: student._id,
@@ -56,16 +154,38 @@ function buildStudentPayload(student) {
     joinDate: student.createdAt,
     shift: student.shift,
     shiftTiming: student.shiftTiming,
+    shiftStartTime: student.shiftStartTime,
+    shiftEndTime: student.shiftEndTime,
+    fullDay: student.fullDay,
     paymentStatus: student.paymentStatus,
+    paymentMode: student.paymentMode,
     loginId: student.loginId,
     issuedPassword: student.issuedPassword,
     loginEnabled: student.loginEnabled,
     documents: student.documents,
     hoursSpent: student.hoursSpent,
     currentlyInLibrary: student.currentlyInLibrary,
+    activeSessionStartedAt: student.activeSessionStartedAt || null,
+    currentSessionDuration: student.currentSessionDuration || "",
     chatEnabled: student.chatEnabled,
     createdAt: student.createdAt,
   };
+}
+
+function buildShiftTiming(startTime = "", endTime = "", fullDay = false) {
+  if (fullDay) {
+    return "Full Day";
+  }
+
+  if (!startTime && !endTime) {
+    return "";
+  }
+
+  if (startTime && endTime) {
+    return `${startTime} - ${endTime}`;
+  }
+
+  return startTime || endTime || "";
 }
 
 function generateStudentLoginId(student) {
@@ -158,6 +278,7 @@ function buildDocumentPayload(document) {
 function buildChatMessagePayload(message) {
   return {
     id: message._id,
+    senderId: message.senderId,
     senderName: message.senderName,
     senderRole: message.senderRole,
     tag: message.tag,
@@ -189,6 +310,20 @@ async function ensureSeats(libraryId, count = DEFAULT_SEAT_COUNT) {
   if (seatsToCreate.length) {
     await Seat.insertMany(seatsToCreate);
   }
+}
+
+async function assignNextSeatNumber(libraryId) {
+  await ensureSeats(libraryId);
+  const emptySeat = await Seat.findOne({ libraryId, status: "empty" }).sort({ number: 1 });
+
+  if (emptySeat) {
+    return String(emptySeat.number);
+  }
+
+  const lastSeat = await Seat.findOne({ libraryId }).sort({ number: -1 });
+  const nextSeatNumber = (lastSeat?.number || 0) + 1;
+  await ensureSeats(libraryId, nextSeatNumber);
+  return String(nextSeatNumber);
 }
 
 async function syncSeatAssignment(libraryId, seatNumberValue, studentId) {
@@ -257,7 +392,100 @@ async function ensureMonthlyPayment(student, status, amount = 2500) {
   });
 }
 
-async function createDocumentRecords(student, documents, file) {
+function formatDurationFromDate(startedAt) {
+  if (!startedAt) {
+    return "";
+  }
+
+  const elapsedMs = Math.max(0, Date.now() - new Date(startedAt).getTime());
+  const totalMinutes = Math.floor(elapsedMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+async function enrichStudentsWithLiveSessions(libraryId, students) {
+  if (!students.length) {
+    return students;
+  }
+
+  const studentIds = students.map((student) => student._id);
+  const activeAttendance = await Attendance.find({
+    libraryId,
+    studentId: { $in: studentIds },
+    checkOut: null,
+  }).sort({ createdAt: -1 });
+
+  const attendanceMap = new Map(activeAttendance.map((record) => [String(record.studentId), record]));
+
+  return students.map((student) => {
+    const activeRecord = attendanceMap.get(String(student._id));
+    if (activeRecord) {
+      student.activeSessionStartedAt = activeRecord.checkIn;
+      student.currentSessionDuration = formatDurationFromDate(activeRecord.checkIn);
+    }
+    return student;
+  });
+}
+
+async function checkInStudent(libraryId, student) {
+  const todayKey = toDateKey();
+  let record = await Attendance.findOne({
+    libraryId,
+    studentId: student._id,
+    dateKey: todayKey,
+  }).populate("studentId");
+
+  if (record) {
+    record.checkIn = record.checkOut ? new Date() : record.checkIn || new Date();
+    record.checkOut = null;
+    await record.save();
+    await record.populate("studentId");
+  } else {
+    record = await Attendance.create({
+      libraryId,
+      studentId: student._id,
+      seatNumber: student.seatNumber,
+      dateKey: todayKey,
+      checkIn: new Date(),
+    });
+    await record.populate("studentId");
+  }
+
+  student.currentlyInLibrary = true;
+  await student.save();
+  await syncSeatAssignment(libraryId, student.seatNumber, student._id);
+
+  return record;
+}
+
+async function checkOutStudent(libraryId, student) {
+  const record = await Attendance.findOne({
+    libraryId,
+    studentId: student._id,
+    checkOut: null,
+  }).populate("studentId");
+
+  if (!record) {
+    student.currentlyInLibrary = false;
+    await student.save();
+    return null;
+  }
+
+  if (!record.checkOut) {
+    record.checkOut = new Date();
+  }
+
+  const sessionMinutes = record.checkIn ? Math.max(0, Math.round((record.checkOut - record.checkIn) / (1000 * 60))) : 0;
+  student.hoursSpent = (student.hoursSpent || 0) + Math.round(sessionMinutes / 60);
+  student.currentlyInLibrary = false;
+
+  await Promise.all([record.save(), student.save()]);
+
+  return record;
+}
+
+async function createDocumentRecords(student, documents, files = []) {
   const created = [];
 
   if (Array.isArray(documents) && documents.length) {
@@ -276,15 +504,16 @@ async function createDocumentRecords(student, documents, file) {
     }
   }
 
-  if (file) {
+  for (const file of files) {
+    const stored = await saveUpload(file, { prefix: "documents" });
     created.push(
       await Document.create({
         libraryId: student.libraryId,
         studentId: student._id,
         seatNumber: student.seatNumber,
         name: file.originalname,
-        fileName: file.filename,
-        fileUrl: `/uploads/${file.filename}`,
+        fileName: stored.fileName,
+        fileUrl: stored.url,
         status: "pending review",
       })
     );
@@ -300,11 +529,13 @@ async function getStudentDashboard(studentId) {
     return null;
   }
 
-  const [attendanceHistory, payments, documents, chatMessages] = await Promise.all([
-    Attendance.find({ studentId }).sort({ dateKey: -1, createdAt: -1 }),
-    Payment.find({ studentId }).populate("studentId").sort({ createdAt: -1 }),
-    Document.find({ studentId }).populate("studentId").sort({ createdAt: -1 }),
-    ChatMessage.find({ libraryId: student.libraryId._id || student.libraryId }).sort({ createdAt: 1 }).limit(100),
+    const [attendanceHistory, payments, documents, chatMessages] = await Promise.all([
+    Attendance.find({ studentId }).sort({ dateKey: -1, createdAt: -1 }).limit(60),
+    Payment.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
+    Document.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
+    ChatMessage.find({ libraryId: student.libraryId._id || student.libraryId })
+      .sort({ createdAt: -1 })
+      .limit(CHAT_MESSAGE_LIMIT),
   ]);
 
   return {
@@ -319,7 +550,11 @@ async function getStudentDashboard(studentId) {
       seatNumber: student.seatNumber,
       shift: student.shift,
       shiftTiming: student.shiftTiming,
+      shiftStartTime: student.shiftStartTime,
+      shiftEndTime: student.shiftEndTime,
+      fullDay: student.fullDay,
       paymentStatus: student.paymentStatus,
+      paymentMode: student.paymentMode,
       loginId: student.loginId,
       issuedPassword: student.issuedPassword,
       loginEnabled: student.loginEnabled,
@@ -332,8 +567,12 @@ async function getStudentDashboard(studentId) {
     seatNumber: student.seatNumber,
     paymentStatus: student.paymentStatus,
     nextPaymentDate: getNextPaymentDate(),
+    currentSessionStartedAt: attendanceHistory.find((item) => !item.checkOut)?.checkIn || null,
+    currentSessionDuration: attendanceHistory.find((item) => !item.checkOut)?.checkIn
+      ? formatDurationFromDate(attendanceHistory.find((item) => !item.checkOut)?.checkIn)
+      : "",
     uploadedDocuments: documents.map(buildDocumentPayload),
-    chatMessages: chatMessages.map(buildChatMessagePayload),
+    chatMessages: chatMessages.reverse().map(buildChatMessagePayload),
     attendanceHistory: attendanceHistory.map((item) => ({
       id: item._id,
       date: item.dateKey,
@@ -350,25 +589,46 @@ async function getStudentDashboard(studentId) {
 
 async function buildLibraryDashboard(libraryId) {
   await ensureSeats(libraryId);
+  const libraryObjectId = toObjectId(libraryId);
 
-  const [library, librarians, students, seats, attendance, payments, documents] = await Promise.all([
-    Library.findById(libraryId),
-    Librarian.find({ libraryId }).sort({ createdAt: 1 }),
-    Student.find({ libraryId }).sort({ createdAt: -1 }),
+  const [library, seats, totalStudents, currentStudents, paidStudents, pendingPayments, totalHoursResult, todaysAttendance, pendingDocuments, totalAttendanceRecords, totalPayments, totalDocuments, totalLibrarians, revenueResult, recentLibrarians, recentStudents, recentAttendance, recentPayments, recentDocuments] = await Promise.all([
+    Library.findById(libraryId).lean(),
     Seat.find({ libraryId }).populate("studentId").sort({ number: 1 }),
-    Attendance.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }),
-    Payment.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }),
-    Document.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }),
+    Student.countDocuments({ libraryId }),
+    Student.countDocuments({ libraryId, currentlyInLibrary: true }),
+    Student.countDocuments({ libraryId, paymentStatus: "paid" }),
+    Payment.countDocuments({ libraryId, status: { $ne: "paid" } }),
+    Student.aggregate([
+      { $match: { libraryId: libraryObjectId } },
+      { $group: { _id: null, total: { $sum: "$hoursSpent" } } },
+    ]),
+    Attendance.countDocuments({ libraryId, dateKey: toDateKey() }),
+    Document.countDocuments({ libraryId, status: { $ne: "verified" } }),
+    Attendance.countDocuments({ libraryId }),
+    Payment.countDocuments({ libraryId }),
+    Document.countDocuments({ libraryId }),
+    Librarian.countDocuments({ libraryId }),
+    Payment.aggregate([
+      { $match: { libraryId: libraryObjectId, status: "paid" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+    Librarian.find({ libraryId }).sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
+    Student.find({ libraryId }).sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
+    Attendance.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
+    Payment.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
+    Document.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
   ]);
 
   if (!library) {
     return null;
   }
 
-  const todayKey = toDateKey();
   const occupiedSeats = seats.filter((seat) => seat.status === "occupied").length;
   const emptySeats = seats.length - occupiedSeats;
-  const todaysAttendance = attendance.filter((entry) => entry.dateKey === todayKey).length;
+  const totalHours = totalHoursResult[0]?.total || 0;
+  const totalRevenue = revenueResult[0]?.total || 0;
+
+  const enrichedRecentStudents = await enrichStudentsWithLiveSessions(libraryId, recentStudents);
 
   return {
     library: {
@@ -376,20 +636,125 @@ async function buildLibraryDashboard(libraryId) {
       name: library.name,
       createdByName: library.createdByName,
       contactEmail: library.contactEmail,
+      location: library.location,
+      latitude: library.latitude,
+      longitude: library.longitude,
       createdAt: library.createdAt,
     },
     stats: {
-      totalStudents: students.length,
+      totalStudents,
       occupiedSeats,
       emptySeats,
       todaysAttendance,
+      currentStudents,
+      paidStudents,
+      pendingPayments,
+      pendingDocuments,
+      totalHours,
+      totalAttendanceRecords,
+      totalPayments,
+      totalDocuments,
+      totalLibrarians,
+      totalRevenue,
     },
-    librarians: librarians.map(buildLibrarianPayload),
-    students: students.map(buildStudentPayload),
+    librarians: recentLibrarians.map(buildLibrarianPayload),
+    students: enrichedRecentStudents.map(buildStudentPayload),
     seats: seats.map(buildSeatPayload),
-    attendance: attendance.map(buildAttendancePayload),
-    payments: payments.map(buildPaymentPayload),
-    documents: documents.map(buildDocumentPayload),
+    attendance: recentAttendance.map(buildAttendancePayload),
+    payments: recentPayments.map(buildPaymentPayload),
+    documents: recentDocuments.map(buildDocumentPayload),
+  };
+}
+
+async function buildSuperAdminDashboard(location = "") {
+  const trimmedLocation = String(location || "").trim();
+  const libraryQuery = trimmedLocation
+    ? { location: { $regex: escapeRegex(trimmedLocation), $options: "i" } }
+    : {};
+  const libraries = await Library.find(libraryQuery).sort({ createdAt: -1 }).lean();
+
+  if (!libraries.length) {
+    return {
+      summary: {
+        totalLibraries: 0,
+        totalStudents: 0,
+        totalRevenue: 0,
+        activeLibrarians: 0,
+      },
+      locations: [],
+      libraries: [],
+    };
+  }
+
+  const libraryIds = libraries.map((library) => library._id);
+  const objectIds = libraryIds.map(toObjectId);
+
+  const [studentCounts, librarianCounts, paidRevenue, paidCounts] = await Promise.all([
+    Student.aggregate([
+      { $match: { libraryId: { $in: objectIds } } },
+      { $group: { _id: "$libraryId", totalStudents: { $sum: 1 } } },
+    ]),
+    Librarian.aggregate([
+      { $match: { libraryId: { $in: objectIds } } },
+      { $group: { _id: "$libraryId", totalLibrarians: { $sum: 1 } } },
+    ]),
+    Payment.aggregate([
+      { $match: { libraryId: { $in: objectIds }, status: "paid" } },
+      { $group: { _id: "$libraryId", totalRevenue: { $sum: "$amount" } } },
+    ]),
+    Payment.aggregate([
+      { $match: { libraryId: { $in: objectIds }, status: "paid" } },
+      { $group: { _id: "$libraryId", paidPayments: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const studentMap = new Map(studentCounts.map((item) => [String(item._id), item.totalStudents]));
+  const librarianMap = new Map(librarianCounts.map((item) => [String(item._id), item.totalLibrarians]));
+  const revenueMap = new Map(paidRevenue.map((item) => [String(item._id), item.totalRevenue]));
+  const paidMap = new Map(paidCounts.map((item) => [String(item._id), item.paidPayments]));
+
+  const locationMap = new Map();
+  const libraryItems = libraries
+    .map((library) => {
+      const id = String(library._id);
+      const totalRevenue = revenueMap.get(id) || 0;
+      const totalStudents = studentMap.get(id) || 0;
+      const totalLibrarians = librarianMap.get(id) || 0;
+      const paidPaymentsCount = paidMap.get(id) || 0;
+      const normalizedLocation = library.location || "Unspecified";
+      const existing = locationMap.get(normalizedLocation) || { location: normalizedLocation, libraries: 0, revenue: 0 };
+      locationMap.set(normalizedLocation, {
+        location: normalizedLocation,
+        libraries: existing.libraries + 1,
+        revenue: existing.revenue + totalRevenue,
+      });
+
+      return {
+        id,
+        name: library.name,
+        location: normalizedLocation,
+        latitude: library.latitude ?? null,
+        longitude: library.longitude ?? null,
+        contactEmail: library.contactEmail,
+        createdByName: library.createdByName,
+        createdAt: library.createdAt,
+        totalStudents,
+        totalLibrarians,
+        totalRevenue,
+        paidPaymentsCount,
+      };
+    })
+    .sort((left, right) => right.totalRevenue - left.totalRevenue || right.totalStudents - left.totalStudents);
+
+  return {
+    summary: {
+      totalLibraries: libraryItems.length,
+      totalStudents: libraryItems.reduce((sum, item) => sum + item.totalStudents, 0),
+      totalRevenue: libraryItems.reduce((sum, item) => sum + item.totalRevenue, 0),
+      activeLibrarians: libraryItems.reduce((sum, item) => sum + item.totalLibrarians, 0),
+    },
+    locations: Array.from(locationMap.values()).sort((left, right) => right.revenue - left.revenue),
+    libraries: libraryItems,
   };
 }
 
@@ -413,7 +778,10 @@ async function seedDemoStudents(libraryId) {
       seatNumber: "1",
       shift: "Morning",
       shiftTiming: "8:00 AM - 2:00 PM",
+      shiftStartTime: "08:00",
+      shiftEndTime: "14:00",
       paymentStatus: "paid",
+      paymentMode: "cash",
       documents: ["Aadhaar Card", "College ID"],
       hoursSpent: 124,
       currentlyInLibrary: true,
@@ -427,7 +795,10 @@ async function seedDemoStudents(libraryId) {
       seatNumber: "2",
       shift: "Evening",
       shiftTiming: "2:00 PM - 8:00 PM",
+      shiftStartTime: "14:00",
+      shiftEndTime: "20:00",
       paymentStatus: "pending",
+      paymentMode: "online",
       documents: ["PAN Card", "Passport Photo"],
       hoursSpent: 86,
       currentlyInLibrary: true,
@@ -440,7 +811,11 @@ async function seedDemoStudents(libraryId) {
       seatNumber: "3",
       shift: "Full Day",
       shiftTiming: "8:00 AM - 8:00 PM",
+      shiftStartTime: "08:00",
+      shiftEndTime: "20:00",
+      fullDay: true,
       paymentStatus: "paid",
+      paymentMode: "cash",
       documents: ["Address Proof"],
       hoursSpent: 152,
       currentlyInLibrary: false,
@@ -453,7 +828,10 @@ async function seedDemoStudents(libraryId) {
       seatNumber: "4",
       shift: "Morning",
       shiftTiming: "7:00 AM - 1:00 PM",
+      shiftStartTime: "07:00",
+      shiftEndTime: "13:00",
       paymentStatus: "overdue",
+      paymentMode: "online",
       documents: ["Aadhaar Card", "College ID"],
       hoursSpent: 67,
       currentlyInLibrary: false,
@@ -496,13 +874,18 @@ async function repairLegacyLibraryData(libraryId) {
   for (const [index, student] of students.entries()) {
     let changed = false;
 
+    if (student.loginId === "") {
+      student.loginId = null;
+      changed = true;
+    }
+
     if (!student.address) {
       student.address = "Library member address";
       changed = true;
     }
 
     if (!student.shiftTiming) {
-      student.shiftTiming = student.shift ? `${student.shift} shift` : "Assigned by library";
+      student.shiftTiming = buildShiftTiming(student.shiftStartTime, student.shiftEndTime, student.fullDay) || getDefaultShiftTiming(student.shift);
       changed = true;
     }
 
@@ -533,6 +916,10 @@ async function createDefaultLibrary() {
   const existingLibrary = await Library.findOne().sort({ createdAt: 1 });
 
   if (existingLibrary) {
+    if (!existingLibrary.location) {
+      existingLibrary.location = "Delhi NCR";
+      await existingLibrary.save();
+    }
     await ensureSeats(existingLibrary._id);
     await seedDemoStudents(existingLibrary._id);
     await repairLegacyLibraryData(existingLibrary._id);
@@ -587,6 +974,15 @@ async function createDefaultLibrary() {
       defaultStudent.email = "student@library.com";
       await defaultStudent.save();
     }
+    const superAdminPassword = await hashPassword("super123");
+    const existingSuperAdmin = await SuperAdmin.findOne({ email: "superadmin@library.com" });
+    if (!existingSuperAdmin) {
+      await SuperAdmin.create({
+        name: "Platform Owner",
+        email: "superadmin@library.com",
+        password: superAdminPassword,
+      });
+    }
     return existingLibrary;
   }
 
@@ -597,6 +993,7 @@ async function createDefaultLibrary() {
     name: "Blue Haven Study Room",
     createdByName: "Priya Verma",
     contactEmail: "admin@library.com",
+    location: "Delhi NCR",
   });
 
   await Librarian.create({
@@ -645,10 +1042,16 @@ async function createDefaultLibrary() {
     defaultStudent.email = "student@library.com";
     await defaultStudent.save();
   }
+  await SuperAdmin.create({
+    name: "Platform Owner",
+    email: "superadmin@library.com",
+    password: await hashPassword("super123"),
+  });
   return library;
 }
 
 exports.buildLibraryDashboard = buildLibraryDashboard;
+exports.buildSuperAdminDashboard = buildSuperAdminDashboard;
 exports.createDefaultLibrary = createDefaultLibrary;
 exports.getStudentDashboard = getStudentDashboard;
 exports.seedDemoStudents = seedDemoStudents;
@@ -670,10 +1073,44 @@ exports.getLibraryDashboard = async (req, res) => {
   }
 };
 
+exports.getSuperAdminDashboard = async (req, res) => {
+  try {
+    const dashboard = await buildSuperAdminDashboard(req.query.location);
+    return res.json(dashboard);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to load super admin dashboard",
+      error: error.message,
+    });
+  }
+};
+
+exports.getSuperAdminLibraryView = async (req, res) => {
+  try {
+    const dashboard = await buildLibraryDashboard(req.params.libraryId);
+
+    if (!dashboard) {
+      return res.status(404).json({ message: "Library not found" });
+    }
+
+    return res.json(dashboard);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to load library detail",
+      error: error.message,
+    });
+  }
+};
+
 exports.getChatMessages = async (req, res) => {
   try {
-    const messages = await ChatMessage.find({ libraryId: req.params.libraryId }).sort({ createdAt: 1 }).limit(100);
-    return res.json(messages.map(buildChatMessagePayload));
+    const { page, limit, skip } = getPageOptions(req.query, CHAT_MESSAGE_LIMIT);
+    const total = await ChatMessage.countDocuments({ libraryId: req.params.libraryId });
+    const messages = await ChatMessage.find({ libraryId: req.params.libraryId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    return res.json(buildPaginatedResponse(messages.reverse().map(buildChatMessagePayload), page, limit, total));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load chat messages",
@@ -684,17 +1121,20 @@ exports.getChatMessages = async (req, res) => {
 
 exports.postChatMessage = async (req, res) => {
   try {
-    const { senderId, senderName, senderRole, message, tag } = req.body;
+    const { message, tag } = req.body;
+    const senderRole = req.auth?.role;
+    const senderId = req.auth?.studentId || req.auth?.librarianId;
 
-    if (!senderId || !senderName || !senderRole || !message) {
+    if (!senderId || !senderRole || !message) {
       return res.status(400).json({
-        message: "senderId, senderName, senderRole, and message are required",
+        message: "Authenticated sender and message are required",
       });
     }
 
     const file = req.file;
     const mimetype = file?.mimetype || "";
     const attachmentType = file ? (mimetype.startsWith("image/") ? "image" : "document") : "";
+    const storedAttachment = file ? await saveUpload(file, { prefix: "chat" }) : null;
 
     const senderModel = senderRole === "student" ? Student : Librarian;
     const sender = await senderModel.findOne({
@@ -712,18 +1152,22 @@ exports.postChatMessage = async (req, res) => {
 
     const created = await ChatMessage.create({
       libraryId: req.params.libraryId,
-      senderName: String(senderName).trim(),
+      senderId: sender._id,
+      senderName: String(sender.name || "").trim(),
       senderRole,
       tag: String(tag || "").trim(),
       message: String(message).trim(),
       attachmentName: file?.originalname || "",
-      attachmentUrl: file ? `/uploads/${file.filename}` : "",
+      attachmentUrl: storedAttachment?.url || "",
       attachmentType,
     });
 
+    const payload = buildChatMessagePayload(created);
+    emitLibraryEvent(req.params.libraryId, "chat:message", payload);
+
     return res.status(201).json({
       message: "Chat message sent",
-      chatMessage: buildChatMessagePayload(created),
+      chatMessage: payload,
     });
   } catch (error) {
     return res.status(500).json({
@@ -751,6 +1195,14 @@ exports.updateChatAccess = async (req, res) => {
     participant.chatEnabled = Boolean(chatEnabled);
     await participant.save();
 
+    emitLibraryEvent(req.params.libraryId, "chat:access-updated", {
+      participant: {
+        id: participant._id,
+        chatEnabled: participant.chatEnabled,
+        participantType,
+      },
+    });
+
     return res.json({
       message: participant.chatEnabled ? "Chat access restored" : "User removed from chat",
       participant: {
@@ -768,8 +1220,26 @@ exports.updateChatAccess = async (req, res) => {
 
 exports.getStudents = async (req, res) => {
   try {
-    const students = await Student.find({ libraryId: req.params.libraryId }).sort({ createdAt: -1 });
-    return res.json(students.map(buildStudentPayload));
+    const { page, limit, skip } = getPageOptions(req.query, 50);
+    const search = String(req.query.search || "").trim();
+    const query = { libraryId: req.params.libraryId };
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: escapeRegex(search), $options: "i" } },
+        { email: { $regex: escapeRegex(search), $options: "i" } },
+        { phone: { $regex: escapeRegex(search), $options: "i" } },
+        { seatNumber: { $regex: escapeRegex(search), $options: "i" } },
+      ];
+    }
+
+    const [total, students] = await Promise.all([
+      Student.countDocuments(query),
+      Student.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+    const enrichedStudents = await enrichStudentsWithLiveSessions(req.params.libraryId, students);
+
+    return res.json(buildPaginatedResponse(enrichedStudents.map(buildStudentPayload), page, limit, total));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load students",
@@ -808,14 +1278,24 @@ exports.registerStudent = async (req, res) => {
       address,
       seatNumber,
       shift,
-      paymentStatus,
-      hoursSpent,
+      paymentMode,
+      shiftStartTime,
+      shiftEndTime,
+      fullDay,
     } = req.body;
     const libraryId = req.params.libraryId || req.body.libraryId;
+    const uploadedFiles = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+    const assignedSeatNumber = String(seatNumber || (await assignNextSeatNumber(libraryId))).trim();
+    const normalizedFullDay = String(fullDay || "").toLowerCase() === "true" || fullDay === true;
+    const resolvedShift = normalizedFullDay ? "Full Day" : String(shift || "Custom").trim();
+    const resolvedShiftTiming =
+      buildShiftTiming(String(shiftStartTime || "").trim(), String(shiftEndTime || "").trim(), normalizedFullDay) ||
+      String(req.body.shiftTiming || "").trim() ||
+      getDefaultShiftTiming(resolvedShift);
 
-    if (!libraryId || !name || !email || !password || !phone || !address || !seatNumber) {
+    if (!libraryId || !name || !email || !password || !phone || !address) {
       return res.status(400).json({
-        message: "libraryId, name, email, password, phone, address, and seatNumber are required",
+        message: "libraryId, name, email, password, phone, and address are required",
       });
     }
 
@@ -833,19 +1313,23 @@ exports.registerStudent = async (req, res) => {
       password: await hashPassword(password),
       phone: phone.trim(),
       address: address.trim(),
-      seatNumber: String(seatNumber).trim(),
-      shift: String(shift || "Morning").trim(),
-      shiftTiming: String(req.body.shiftTiming || "").trim(),
-      paymentStatus: String(paymentStatus || "pending").toLowerCase(),
-      documents: req.file ? [req.file.originalname] : [],
-      hoursSpent: Number(hoursSpent) || 0,
+      seatNumber: assignedSeatNumber,
+      shift: resolvedShift,
+      shiftTiming: resolvedShiftTiming,
+      shiftStartTime: normalizedFullDay ? "" : String(shiftStartTime || "").trim(),
+      shiftEndTime: normalizedFullDay ? "" : String(shiftEndTime || "").trim(),
+      fullDay: normalizedFullDay,
+      paymentStatus: "pending",
+      paymentMode: String(paymentMode || "").trim().toLowerCase(),
+      documents: uploadedFiles.map((file) => file.originalname),
+      hoursSpent: 0,
       currentlyInLibrary: true,
       loginEnabled: false,
     });
 
     await syncSeatAssignment(libraryId, student.seatNumber, student._id);
     await ensureMonthlyPayment(student, student.paymentStatus);
-    await createDocumentRecords(student, student.documents, req.file);
+    await createDocumentRecords(student, student.documents, uploadedFiles);
 
     if (student.paymentStatus === "paid") {
       await issueStudentCredentials(student);
@@ -896,14 +1380,36 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
-    if (req.file) {
-      student.documents = [...student.documents, req.file.originalname];
+    if (req.body.paymentMode !== undefined) {
+      student.paymentMode = String(req.body.paymentMode || "").trim().toLowerCase();
+    }
+
+    if (req.body.fullDay !== undefined) {
+      student.fullDay = String(req.body.fullDay).toLowerCase() === "true";
+    }
+
+    if (req.body.shiftStartTime !== undefined) {
+      student.shiftStartTime = String(req.body.shiftStartTime || "").trim();
+    }
+
+    if (req.body.shiftEndTime !== undefined) {
+      student.shiftEndTime = String(req.body.shiftEndTime || "").trim();
+    }
+
+    student.shiftTiming =
+      buildShiftTiming(student.shiftStartTime, student.shiftEndTime, student.fullDay) ||
+      student.shiftTiming ||
+      getDefaultShiftTiming(student.shift);
+
+    const uploadedFiles = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+    if (uploadedFiles.length) {
+      student.documents = [...student.documents, ...uploadedFiles.map((file) => file.originalname)];
     }
 
     await student.save();
 
-    if (req.file) {
-      await createDocumentRecords(student, [], req.file);
+    if (uploadedFiles.length) {
+      await createDocumentRecords(student, [], uploadedFiles);
     }
 
     if (previousSeat !== student.seatNumber) {
@@ -978,13 +1484,14 @@ exports.updateStudentProfile = async (req, res) => {
     const document = req.files?.document?.[0];
 
     if (photo) {
+      const storedPhoto = await saveUpload(photo, { prefix: "profiles" });
       student.profilePhotoName = photo.originalname;
-      student.profilePhotoUrl = `/uploads/${photo.filename}`;
+      student.profilePhotoUrl = storedPhoto.url;
     }
 
     if (document) {
       student.documents = [...student.documents, document.originalname];
-      await createDocumentRecords(student, [], document);
+      await createDocumentRecords(student, [], [document]);
     }
 
     await student.save();
@@ -1026,7 +1533,6 @@ exports.changeStudentPassword = async (req, res) => {
       student.loginId = generateStudentLoginId(student);
     }
     await student.save();
-
     return res.json({
       message: "Password changed successfully",
       student: buildStudentPayload(student),
@@ -1055,8 +1561,17 @@ exports.getSeats = async (req, res) => {
 
 exports.getAttendance = async (req, res) => {
   try {
-    const records = await Attendance.find({ libraryId: req.params.libraryId }).populate("studentId").sort({ createdAt: -1 });
-    return res.json(records.map(buildAttendancePayload));
+    const { page, limit, skip } = getPageOptions(req.query, 50);
+    const query = { libraryId: req.params.libraryId };
+    if (req.query.dateKey) {
+      query.dateKey = String(req.query.dateKey).trim();
+    }
+
+    const [total, records] = await Promise.all([
+      Attendance.countDocuments(query),
+      Attendance.find(query).populate("studentId").sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+    return res.json(buildPaginatedResponse(records.map(buildAttendancePayload), page, limit, total));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load attendance",
@@ -1082,34 +1597,7 @@ exports.markPresent = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const todayKey = toDateKey();
-    let record = await Attendance.findOne({
-      libraryId: req.params.libraryId,
-      studentId,
-      dateKey: todayKey,
-    }).populate("studentId");
-
-    if (record) {
-      if (record.checkOut) {
-        record.checkOut = null;
-      }
-      record.checkIn = record.checkIn || new Date();
-      await record.save();
-      await record.populate("studentId");
-    } else {
-      record = await Attendance.create({
-        libraryId: req.params.libraryId,
-        studentId,
-        seatNumber: student.seatNumber,
-        dateKey: todayKey,
-        checkIn: new Date(),
-      });
-      await record.populate("studentId");
-    }
-
-    student.currentlyInLibrary = true;
-    await student.save();
-    await syncSeatAssignment(req.params.libraryId, student.seatNumber, student._id);
+    const record = await checkInStudent(req.params.libraryId, student);
 
     return res.json({
       message: "Attendance marked successfully",
@@ -1123,10 +1611,82 @@ exports.markPresent = async (req, res) => {
   }
 };
 
+exports.getAttendanceQrToken = async (req, res) => {
+  try {
+    return res.json({
+      token: getQrPayload(req.params.libraryId),
+      validFor: toDateKey(),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to generate attendance QR",
+      error: error.message,
+    });
+  }
+};
+
+exports.scanAttendanceQr = async (req, res) => {
+  try {
+    const studentId = req.auth?.studentId;
+    const libraryId = req.params.libraryId;
+    const { token } = req.body;
+
+    if (!studentId) {
+      return res.status(403).json({ message: "Student access required" });
+    }
+
+    if (!verifyQrPayload(token, libraryId)) {
+      return res.status(400).json({ message: "Invalid or expired QR code" });
+    }
+
+    const student = await Student.findOne({
+      _id: studentId,
+      libraryId,
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const activeRecord = await Attendance.findOne({
+      libraryId,
+      studentId: student._id,
+      checkOut: null,
+    });
+    const wasInLibrary = Boolean(activeRecord);
+    const attendance = wasInLibrary
+      ? await checkOutStudent(libraryId, student)
+      : await checkInStudent(libraryId, student);
+
+    const dashboard = await getStudentDashboard(student._id);
+
+    return res.json({
+      message: wasInLibrary ? "Checked out successfully" : "Checked in successfully",
+      mode: wasInLibrary ? "check-out" : "check-in",
+      attendance: attendance ? buildAttendancePayload(attendance) : null,
+      dashboard,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to process QR attendance",
+      error: error.message,
+    });
+  }
+};
+
 exports.getPayments = async (req, res) => {
   try {
-    const payments = await Payment.find({ libraryId: req.params.libraryId }).populate("studentId").sort({ createdAt: -1 });
-    return res.json(payments.map(buildPaymentPayload));
+    const { page, limit, skip } = getPageOptions(req.query, 50);
+    const query = { libraryId: req.params.libraryId };
+    if (req.query.status) {
+      query.status = String(req.query.status).trim().toLowerCase();
+    }
+
+    const [total, payments] = await Promise.all([
+      Payment.countDocuments(query),
+      Payment.find(query).populate("studentId").sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+    return res.json(buildPaginatedResponse(payments.map(buildPaymentPayload), page, limit, total));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load payments",
@@ -1169,8 +1729,17 @@ exports.markPaymentPaid = async (req, res) => {
 
 exports.getDocuments = async (req, res) => {
   try {
-    const documents = await Document.find({ libraryId: req.params.libraryId }).populate("studentId").sort({ createdAt: -1 });
-    return res.json(documents.map(buildDocumentPayload));
+    const { page, limit, skip } = getPageOptions(req.query, 50);
+    const query = { libraryId: req.params.libraryId };
+    if (req.query.status) {
+      query.status = String(req.query.status).trim().toLowerCase();
+    }
+
+    const [total, documents] = await Promise.all([
+      Document.countDocuments(query),
+      Document.find(query).populate("studentId").sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+    return res.json(buildPaginatedResponse(documents.map(buildDocumentPayload), page, limit, total));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load documents",
@@ -1220,6 +1789,13 @@ exports.registerLibrarian = async (req, res) => {
 
 exports.getStudentDashboardHandler = async (req, res) => {
   try {
+    if (
+      req.auth?.role === "student" &&
+      String(req.auth.studentId) !== String(req.params.studentId)
+    ) {
+      return res.status(403).json({ message: "You can only access your own dashboard" });
+    }
+
     const dashboard = await getStudentDashboard(req.params.studentId);
 
     if (!dashboard) {

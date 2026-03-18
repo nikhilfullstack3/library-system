@@ -43,4 +43,8 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
+paymentSchema.index({ libraryId: 1, createdAt: -1 });
+paymentSchema.index({ libraryId: 1, status: 1, createdAt: -1 });
+paymentSchema.index({ libraryId: 1, studentId: 1, month: 1 }, { unique: true });
+
 module.exports = mongoose.model("Payment", paymentSchema);

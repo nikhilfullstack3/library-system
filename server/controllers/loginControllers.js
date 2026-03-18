@@ -1,7 +1,9 @@
 const Librarian = require("../models/Librarian");
 const Student = require("../models/Student");
+const SuperAdmin = require("../models/SuperAdmin");
 const { verifyPassword } = require("../utils/password");
-const { buildLibraryDashboard, getStudentDashboard } = require("./dashboardControllers");
+const { createSessionToken } = require("../utils/sessionToken");
+const { buildLibraryDashboard, buildSuperAdminDashboard, getStudentDashboard } = require("./dashboardControllers");
 
 exports.loginLibrarian = async (req, res) => {
   try {
@@ -31,13 +33,16 @@ exports.loginLibrarian = async (req, res) => {
       });
     }
 
+    const session = {
+      role: librarian.role,
+      libraryId: librarian.libraryId?._id || librarian.libraryId,
+      librarianId: librarian._id,
+    };
+
     return res.json({
       message: "Login successful",
-      session: {
-        role: librarian.role,
-        libraryId: librarian.libraryId?._id || librarian.libraryId,
-        librarianId: librarian._id,
-      },
+      session,
+      token: createSessionToken(session),
       librarian: {
         id: librarian._id,
         name: librarian.name,
@@ -91,14 +96,69 @@ exports.loginStudent = async (req, res) => {
       });
     }
 
+    const session = {
+      role: "student",
+      libraryId: student.libraryId?._id || student.libraryId,
+      studentId: student._id,
+    };
+
     return res.json({
       message: "Login successful",
-      session: {
-        role: "student",
-        libraryId: student.libraryId?._id || student.libraryId,
-        studentId: student._id,
-      },
+      session,
+      token: createSessionToken(session),
       dashboard: await getStudentDashboard(student._id),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to login",
+      error: error.message,
+    });
+  }
+};
+
+exports.loginSuperAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "email and password are required",
+      });
+    }
+
+    const superAdmin = await SuperAdmin.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!superAdmin) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const passwordMatches = await verifyPassword(password, superAdmin.password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const session = {
+      role: "super_admin",
+      superAdminId: superAdmin._id,
+    };
+
+    return res.json({
+      message: "Login successful",
+      session,
+      token: createSessionToken(session),
+      superAdmin: {
+        id: superAdmin._id,
+        name: superAdmin.name,
+        email: superAdmin.email,
+      },
+      dashboard: await buildSuperAdminDashboard(),
     });
   } catch (error) {
     return res.status(500).json({

@@ -21,7 +21,7 @@ const studentSchema = new mongoose.Schema(
     loginId: {
       type: String,
       trim: true,
-      default: "",
+      default: undefined,
       unique: true,
       sparse: true,
     },
@@ -69,11 +69,30 @@ const studentSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    shiftStartTime: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    shiftEndTime: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    fullDay: {
+      type: Boolean,
+      default: false,
+    },
     paymentStatus: {
       type: String,
       enum: ["paid", "pending", "overdue"],
       default: "pending",
       required: true,
+    },
+    paymentMode: {
+      type: String,
+      enum: ["", "cash", "online"],
+      default: "",
     },
     documents: {
       type: [String],
@@ -104,5 +123,9 @@ const studentSchema = new mongoose.Schema(
 );
 
 studentSchema.index({ libraryId: 1, seatNumber: 1 }, { unique: true });
+studentSchema.index({ libraryId: 1, createdAt: -1 });
+studentSchema.index({ libraryId: 1, paymentStatus: 1, createdAt: -1 });
+studentSchema.index({ libraryId: 1, currentlyInLibrary: 1 });
+studentSchema.index({ libraryId: 1, chatEnabled: 1 });
 
 module.exports = mongoose.model("Student", studentSchema);

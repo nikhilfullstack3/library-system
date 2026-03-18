@@ -1,11 +1,12 @@
 const Librarian = require("../models/Librarian");
 const Library = require("../models/Library");
 const { hashPassword } = require("../utils/password");
+const { createSessionToken } = require("../utils/sessionToken");
 const { buildLibraryDashboard, seedDemoStudents } = require("./dashboardControllers");
 
 exports.registerLibrary = async (req, res) => {
   try {
-    const { name, email, password, libraryName } = req.body;
+    const { name, email, password, libraryName, location, latitude, longitude } = req.body;
 
     if (!name || !email || !password || !libraryName) {
       return res.status(400).json({
@@ -26,6 +27,9 @@ exports.registerLibrary = async (req, res) => {
       name: libraryName.trim(),
       createdByName: name.trim(),
       contactEmail: normalizedEmail,
+      location: String(location || "").trim(),
+      latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : null,
+      longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : null,
     });
 
     const librarian = await Librarian.create({
@@ -39,12 +43,16 @@ exports.registerLibrary = async (req, res) => {
     await seedDemoStudents(library._id);
     const dashboard = await buildLibraryDashboard(library._id);
 
+    const session = {
+      role: "admin",
+      libraryId: library._id,
+      librarianId: librarian._id,
+    };
+
     return res.status(201).json({
       message: "Library created successfully",
-      session: {
-        role: "admin",
-        libraryId: library._id,
-      },
+      session,
+      token: createSessionToken(session),
       librarian: {
         id: librarian._id,
         name: librarian.name,

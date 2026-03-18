@@ -1,10 +1,15 @@
-import { MessageCircleMore, Paperclip, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Paperclip, UserRound } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { useAuth } from "../../context/AuthContext";
+import { API_ORIGIN } from "../../lib/api";
+
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
 function formatChatTime(value) {
   return new Intl.DateTimeFormat("en", {
@@ -13,58 +18,173 @@ function formatChatTime(value) {
   }).format(new Date(value));
 }
 
+function formatFileSize(size) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
 function getSenderLabel(message) {
   return message.senderRole === "admin" ? `${message.senderName} (Admin)` : message.senderName;
 }
 
+function resolveAssetUrl(url = "") {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_ORIGIN}${url}`;
+}
+
+function renderLinkedMessage(text, isAdminMessage) {
+  return text.split(URL_PATTERN).map((part, index) => {
+    if (part.match(URL_PATTERN)) {
+      return (
+        <a className="text-blue-600 underline underline-offset-4" href={part} key={`${part}-${index}`} rel="noreferrer" target="_blank">
+          {part}
+        </a>
+      );
+    }
+
+    return (
+      <span className={isAdminMessage ? "text-emerald-700" : ""} key={`${part}-${index}`}>
+        {part}
+      </span>
+    );
+  });
+}
+
+function getShiftEndDate(student) {
+  if (!student?.shiftEndTime || student.fullDay) {
+    return null;
+  }
+
+  const match = String(student.shiftEndTime).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) {
+    return null;
+  }
+
+  let hours = Number(match[1]) % 12;
+  const minutes = Number(match[2]);
+  if (match[3].toUpperCase() === "PM") {
+    hours += 12;
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function getAttendanceDisplay(student) {
+  if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt) {
+    return student?.shiftTiming || student?.shift || "-";
+  }
+
+  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function getShiftWarning(student) {
+  if (!student?.currentlyInLibrary) {
+    return null;
+  }
+
+  const shiftEndDate = getShiftEndDate(student);
+  if (!shiftEndDate) {
+    return null;
+  }
+
+  const remainingMs = shiftEndDate.getTime() - Date.now();
+  if (remainingMs <= 0) {
+    return "Your shift has ended. Please check out now.";
+  }
+
+  if (remainingMs > SHIFT_END_WARNING_MS) {
+    return null;
+  }
+
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `Your shift will end in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s.`;
+}
+
 export function StudentDashboardPage() {
-  const {
-    fetchChatMessages,
-    logout,
-    refreshStudentData,
-    sendChatMessage,
-    session,
-    studentData,
-  } = useAuth();
+  const { fetchChatMessages, logout, refreshStudentData, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
   const navigate = useNavigate();
   const [chatMessages, setChatMessages] = useState(studentData?.chatMessages || []);
   const [chatInput, setChatInput] = useState("");
   const [chatAttachment, setChatAttachment] = useState(null);
   const [sending, setSending] = useState(false);
+  const [, setTimerTick] = useState(0);
 
   useEffect(() => {
     setChatMessages(studentData?.chatMessages || []);
   }, [studentData]);
 
-  useEffect(() => {
+  const loadMessages = useCallback(async () => {
     if (!session?.studentId) {
-      return undefined;
+      return;
     }
 
-    const intervalId = window.setInterval(async () => {
-      const messages = await fetchChatMessages();
-      setChatMessages(messages);
-      await refreshStudentData(session.studentId);
-    }, 10000);
-
-    return () => window.clearInterval(intervalId);
+    const messages = await fetchChatMessages();
+    setChatMessages(messages);
+    await refreshStudentData(session.studentId);
   }, [fetchChatMessages, refreshStudentData, session]);
+
+  useEffect(() => {
+    if (!session?.studentId) {
+      return;
+    }
+
+    loadMessages().catch(() => {});
+  }, [loadMessages, session?.studentId]);
+
+  useEffect(() => {
+    if (!session?.studentId) {
+      return () => {};
+    }
+
+    return subscribeToLibraryEvents({
+      onAccessUpdate: async () => {
+        await loadMessages();
+      },
+      onMessage: async () => {
+        await loadMessages();
+      },
+    });
+  }, [loadMessages, session?.studentId, subscribeToLibraryEvents]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setTimerTick((value) => value + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   async function handleSendMessage(event) {
     event.preventDefault();
-    if (!chatInput.trim() || !studentData?.student.chatEnabled) {
+    if ((!chatInput.trim() && !chatAttachment) || !studentData?.student.chatEnabled) {
       return;
     }
 
     setSending(true);
     try {
+      if (chatAttachment?.size > MAX_ATTACHMENT_SIZE) {
+        window.alert(`Please upload a file smaller than ${formatFileSize(MAX_ATTACHMENT_SIZE)}.`);
+        return;
+      }
+
       await sendChatMessage({
-        message: chatInput.trim(),
+        message: chatInput.trim() || (chatAttachment?.name ? `Shared ${chatAttachment.name}` : ""),
         tag: "",
         attachment: chatAttachment,
       });
       const messages = await fetchChatMessages();
       setChatMessages(messages);
+      await refreshStudentData(session.studentId);
       setChatInput("");
       setChatAttachment(null);
     } finally {
@@ -72,52 +192,38 @@ export function StudentDashboardPage() {
     }
   }
 
+  const student = studentData?.student;
+  const attendanceDisplay = getAttendanceDisplay(student);
+  const shiftWarning = getShiftWarning(student);
+
   return (
     <div className="min-h-screen bg-[#f3fbf5]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="overflow-hidden rounded-3xl">
-          <CardHeader className="border-b border-emerald-100 bg-[radial-gradient(circle_at_top,#f8fff9_0%,#eff8f2_44%,#e6f4ea_100%)]">
-            <div className="relative overflow-hidden rounded-[2rem] border border-emerald-100/80 bg-white/50 px-5 py-5 shadow-[0_16px_44px_rgba(22,101,52,0.08)]">
-              <div className="absolute -left-6 top-0 h-24 w-24 rounded-full bg-emerald-200/40 blur-2xl" />
-              <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-lime-100/70 blur-3xl" />
+        <div className="mb-4 flex justify-end gap-2">
+          <Button onClick={() => navigate("/student/profile")} variant="outline">
+            <UserRound className="mr-2 h-4 w-4" />
+            Profile
+          </Button>
+          <Button onClick={logout} variant="outline">
+            Logout
+          </Button>
+        </div>
 
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-1 items-center justify-center gap-4 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
-                  <MessageCircleMore className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700">
-                      Student Chat
-                    </p>
-                    <CardTitle className="mt-2 bg-[linear-gradient(135deg,#0f5132_0%,#2d7a4f_50%,#5c9c67_100%)] bg-clip-text text-3xl tracking-tight text-transparent sm:text-4xl">
-                      {studentData?.student?.library?.name || "Your Library"}
-                    </CardTitle>
-                    <p className="mt-2 text-sm text-slate-600">
-                      {session?.name} • Library chat only for now
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button className="border-white/90 bg-white/80 shadow-sm backdrop-blur" onClick={() => navigate("/student/profile")} variant="outline">
-                    <UserRound className="mr-2 h-4 w-4" />
-                    Profile
-                  </Button>
-                  <Button className="border-white/90 bg-white/80 shadow-sm backdrop-blur" onClick={logout} variant="outline">
-                    Logout
-                  </Button>
-                </div>
+        <Card className="h-[calc(100vh-10rem)] overflow-hidden rounded-[2rem]">
+          <CardContent className="flex h-full flex-col p-0">
+            <div className={`flex items-center justify-between px-5 py-3 text-sm ${shiftWarning ? "bg-rose-50 text-rose-700" : "bg-[#e4f3e8] text-slate-700"}`}>
+              <div>
+                <p className={`font-semibold ${shiftWarning ? "text-rose-700" : "text-slate-900"}`}>
+                  {student?.currentlyInLibrary ? "Checked In" : "Checked Out"}
+                </p>
+                <p className={shiftWarning ? "text-rose-600" : "text-slate-500"}>
+                  {student?.currentlyInLibrary ? `Live timer ${attendanceDisplay}` : `Shift ${attendanceDisplay}`}
+                </p>
               </div>
+              {shiftWarning ? <p className="text-right text-xs font-semibold text-rose-600">{shiftWarning}</p> : null}
             </div>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <div className="bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_100%)] p-3">
-              <div className="mx-auto mb-3 w-fit rounded-full bg-white/90 px-3 py-1 text-xs text-slate-500 shadow-sm">
-                Only users from your library can see these messages
-              </div>
-              <div className="max-h-[70vh] space-y-3 overflow-y-auto px-1 py-2">
+            <div className="flex-1 bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_100%)] p-4">
+              <div className="h-full space-y-3 overflow-y-auto px-1 py-2">
                 {chatMessages.map((message) => {
                   const isOwnMessage = message.senderName === session?.name;
                   const isAdminMessage = message.senderRole === "admin";
@@ -136,19 +242,23 @@ export function StudentDashboardPage() {
                             {getSenderLabel(message)}
                           </p>
                         ) : null}
-                        <p className={`mt-1.5 whitespace-pre-wrap text-sm leading-6 ${isAdminMessage ? "text-emerald-700" : ""}`}>{message.message}</p>
+                        <p className={`mt-1.5 whitespace-pre-wrap text-sm leading-6 ${isAdminMessage ? "text-emerald-700" : ""}`}>
+                          {renderLinkedMessage(message.message, isAdminMessage)}
+                        </p>
                         {message.attachmentUrl ? (
                           <div className="mt-3">
                             {message.attachmentType === "image" ? (
-                              <img
-                                alt={message.attachmentName || "Chat attachment"}
-                                className="max-h-56 rounded-2xl border border-slate-200 object-cover"
-                                src={`http://127.0.0.1:5001${message.attachmentUrl}`}
-                              />
+                              <a href={resolveAssetUrl(message.attachmentUrl)} rel="noreferrer" target="_blank">
+                                <img
+                                  alt={message.attachmentName || "Chat attachment"}
+                                  className="max-h-56 rounded-2xl border border-slate-200 object-cover"
+                                  src={resolveAssetUrl(message.attachmentUrl)}
+                                />
+                              </a>
                             ) : (
                               <a
-                                className="inline-flex rounded-xl border border-emerald-100 bg-white/80 px-3 py-2 text-sm text-emerald-700"
-                                href={`http://127.0.0.1:5001${message.attachmentUrl}`}
+                                className="inline-flex rounded-xl border border-emerald-100 bg-white/80 px-3 py-2 text-sm text-blue-600 underline underline-offset-4"
+                                href={resolveAssetUrl(message.attachmentUrl)}
                                 rel="noreferrer"
                                 target="_blank"
                               >
@@ -168,37 +278,27 @@ export function StudentDashboardPage() {
               </div>
             </div>
 
-            <form className="border-t border-slate-100 bg-white p-4" onSubmit={handleSendMessage}>
+            <form className="bg-[#edf7ef] p-4" onSubmit={handleSendMessage}>
               <div className="flex items-center gap-3">
                 <label className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200">
                   <Paperclip className="h-5 w-5" />
-                  <input
-                    className="hidden"
-                    type="file"
-                    onChange={(event) => setChatAttachment(event.target.files?.[0] || null)}
-                  />
+                  <input className="hidden" type="file" onChange={(event) => setChatAttachment(event.target.files?.[0] || null)} />
                 </label>
                 <Input
                   className="h-11 flex-1 rounded-full border-slate-200 bg-slate-50 px-4"
-                  placeholder={
-                    studentData?.student.chatEnabled ? "Type a message" : "Chat access removed by admin"
-                  }
+                  placeholder={studentData?.student.chatEnabled ? "Type a message" : "Chat access removed by admin"}
                   disabled={!studentData?.student.chatEnabled}
                   value={chatInput}
                   onChange={(event) => setChatInput(event.target.value)}
                 />
-                <Button
-                  className="rounded-full bg-emerald-600 hover:bg-emerald-700"
-                  disabled={sending || !studentData?.student.chatEnabled}
-                  type="submit"
-                >
+                <Button className="rounded-full bg-emerald-600 hover:bg-emerald-700" disabled={sending || !studentData?.student.chatEnabled} type="submit">
                   {sending ? "Sending..." : "Send"}
                 </Button>
               </div>
               {!studentData?.student.chatEnabled ? (
                 <p className="mt-2 text-xs text-rose-600">Admin has removed your ability to send messages in library chat.</p>
               ) : null}
-              {chatAttachment ? <p className="mt-2 text-xs text-slate-500">Attached: {chatAttachment.name}</p> : null}
+              {chatAttachment ? <p className="mt-2 text-xs text-slate-500">Attached: {chatAttachment.name} • {formatFileSize(chatAttachment.size || 0)} • limit {formatFileSize(MAX_ATTACHMENT_SIZE)}</p> : null}
             </form>
           </CardContent>
         </Card>

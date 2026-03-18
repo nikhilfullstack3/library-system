@@ -12,6 +12,7 @@ const baseState = {
   address: "",
   seatNumber: "",
   shift: "Morning",
+  shiftTiming: "8:00 AM - 2:00 PM",
   paymentStatus: "paid",
   hoursSpent: "0",
   document: null,
@@ -92,12 +93,39 @@ export function AddStudentDialog({ initialValues, onSubmit, submitLabel = "Save 
               <select
                 className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
                 value={form.shift}
-                onChange={(event) => setForm((current) => ({ ...current, shift: event.target.value }))}
+                onChange={(event) => {
+                  const nextShift = event.target.value;
+                  const defaultShiftTiming =
+                    nextShift === "Morning"
+                      ? "8:00 AM - 2:00 PM"
+                      : nextShift === "Evening"
+                        ? "2:00 PM - 8:00 PM"
+                        : "8:00 AM - 8:00 PM";
+
+                  setForm((current) => ({
+                    ...current,
+                    shift: nextShift,
+                    shiftTiming:
+                      current.shiftTiming === "" ||
+                      current.shiftTiming === "8:00 AM - 2:00 PM" ||
+                      current.shiftTiming === "2:00 PM - 8:00 PM" ||
+                      current.shiftTiming === "8:00 AM - 8:00 PM"
+                        ? defaultShiftTiming
+                        : current.shiftTiming,
+                  }));
+                }}
               >
                 <option>Morning</option>
                 <option>Evening</option>
                 <option>Full Day</option>
               </select>
+            </Field>
+            <Field label="Shift Timing">
+              <Input
+                placeholder="8:00 AM - 2:00 PM"
+                value={form.shiftTiming}
+                onChange={(event) => setForm((current) => ({ ...current, shiftTiming: event.target.value }))}
+              />
             </Field>
             <Field label="Payment Status">
               <select

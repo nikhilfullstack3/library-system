@@ -44,4 +44,8 @@ const documentSchema = new mongoose.Schema(
   }
 );
 
+documentSchema.index({ libraryId: 1, createdAt: -1 });
+documentSchema.index({ libraryId: 1, status: 1, createdAt: -1 });
+documentSchema.index({ libraryId: 1, studentId: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Document", documentSchema);

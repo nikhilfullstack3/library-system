@@ -22,7 +22,7 @@ export function LoginPage() {
 
     try {
       const session = await login(role, email, password);
-      navigate(session.role === "student" ? "/student" : "/librarian");
+      navigate(session.role === "student" ? "/student" : session.role === "super_admin" ? "/super-admin" : "/librarian");
     } catch (error) {
       setAuthError(error.message || "Unable to login");
     } finally {
@@ -75,8 +75,8 @@ export function LoginPage() {
           </CardHeader>
           <CardContent>
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-                {["librarian", "student"].map((item) => (
+              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1">
+                {["librarian", "student", "super_admin"].map((item) => (
                   <button
                     key={item}
                     className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -85,7 +85,7 @@ export function LoginPage() {
                     type="button"
                     onClick={() => setRole(item)}
                   >
-                    {item === "librarian" ? "Librarian" : "Student"}
+                    {item === "librarian" ? "Librarian" : item === "student" ? "Student" : "Super Admin"}
                   </button>
                 ))}
               </div>
@@ -105,7 +105,7 @@ export function LoginPage() {
             {authError ? <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{authError}</p> : null}
 
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              Demo access: librarian `admin@library.com` / `admin123`. Student login ID and password are issued when payment is marked paid and can be seen in the student profile.
+              Demo access: librarian `admin@library.com` / `admin123`, super admin `superadmin@library.com` / `super123`. Student login ID and password are issued when payment is marked paid and can be seen in the student profile.
             </div>
           </CardContent>
         </Card>

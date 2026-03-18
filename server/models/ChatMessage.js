@@ -7,6 +7,10 @@ const chatMessageSchema = new mongoose.Schema(
       ref: "Library",
       required: true,
     },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
     senderName: {
       type: String,
       required: true,
@@ -47,5 +51,8 @@ const chatMessageSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+chatMessageSchema.index({ libraryId: 1, createdAt: -1 });
+chatMessageSchema.index({ libraryId: 1, senderId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("ChatMessage", chatMessageSchema);

@@ -77,15 +77,15 @@ export function DashboardPage() {
           <CardContent className="space-y-4">
             <TaskRow
               label="Pending payments"
-              value={`${libraryData?.payments.filter((item) => item.status !== "paid").length || 0} students`}
+              value={`${libraryData?.stats.pendingPayments || 0} students`}
             />
             <TaskRow
               label="Document reviews"
-              value={`${libraryData?.documents.filter((item) => item.status !== "verified").length || 0} awaiting check`}
+              value={`${libraryData?.stats.pendingDocuments || 0} awaiting check`}
             />
             <TaskRow
               label="Attendance records"
-              value={`${libraryData?.attendance.length || 0} logged`}
+              value={`${libraryData?.stats.totalAttendanceRecords || 0} logged`}
             />
             <TaskRow label="Available seats" value={`${libraryData?.stats.emptySeats || 0} open now`} />
           </CardContent>

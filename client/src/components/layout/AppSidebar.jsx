@@ -1,9 +1,9 @@
 import {
   MessageCircleMore,
-  CreditCard,
   FileText,
   LayoutDashboard,
   Menu,
+  UserPlus,
   Rows3,
   SquareLibrary,
   Users,
@@ -15,9 +15,9 @@ import { cn } from "../../lib/utils";
 const links = [
   { label: "Dashboard", to: "/librarian", icon: LayoutDashboard },
   { label: "Students", to: "/librarian/students", icon: Users },
+  { label: "Registration", to: "/librarian/registration", icon: UserPlus },
   { label: "Seats", to: "/librarian/seats", icon: Rows3 },
   { label: "Attendance", to: "/librarian/attendance", icon: SquareLibrary },
-  { label: "Payments", to: "/librarian/payments", icon: CreditCard },
   { label: "Documents", to: "/librarian/documents", icon: FileText },
   { label: "Chat", to: "/librarian/chat", icon: MessageCircleMore },
 ];

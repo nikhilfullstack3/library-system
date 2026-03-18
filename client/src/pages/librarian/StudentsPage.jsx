@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { AddStudentDialog } from "../../components/students/AddStudentDialog";
 import { Badge } from "../../components/ui/badge";
@@ -14,14 +15,104 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
 
+const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
+
 function paymentVariant(status) {
   if (status === "paid") return "success";
   if (status === "pending") return "warning";
   return "destructive";
 }
 
+function getShiftEndDate(student) {
+  if (!student.shiftEndTime || student.fullDay) {
+    return null;
+  }
+
+  const normalized = String(student.shiftEndTime).trim();
+  const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) {
+    return null;
+  }
+
+  let hours = Number(match[1]) % 12;
+  const minutes = Number(match[2]);
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === "PM") {
+    hours += 12;
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function getLiveTimer(student) {
+  if (!student.currentlyInLibrary || !student.activeSessionStartedAt) {
+    return null;
+  }
+
+  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function getShiftWarning(student) {
+  if (!student.currentlyInLibrary) {
+    return null;
+  }
+
+  const shiftEndDate = getShiftEndDate(student);
+  if (!shiftEndDate) {
+    return null;
+  }
+
+  const remainingMs = shiftEndDate.getTime() - Date.now();
+  if (remainingMs <= 0) {
+    return {
+      isWarning: true,
+      text: "Shift ended",
+    };
+  }
+
+  if (remainingMs > SHIFT_END_WARNING_MS) {
+    return null;
+  }
+
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return {
+    isWarning: true,
+    text: `Shift ends in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`,
+  };
+}
+
 export function StudentsPage() {
-  const { createStudent, deleteStudent, libraryData, updateStudent } = useAuth();
+  const { createStudent, deleteStudent, fetchStudents, updateStudent } = useAuth();
+  const [page, setPage] = useState(1);
+  const [studentResponse, setStudentResponse] = useState({ items: [], pagination: null });
+  const [, setTimerTick] = useState(0);
+
+  function loadStudents(nextPage = page) {
+    return fetchStudents({ page: nextPage, limit: 25 }).then(setStudentResponse);
+  }
+
+  useEffect(() => {
+    loadStudents(page).catch(() => {});
+  }, [fetchStudents, page]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setTimerTick((value) => value + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const students = studentResponse.items || [];
+  const pagination = studentResponse.pagination;
+  const endingSoonStudents = students.filter((student) => getShiftWarning(student));
 
   return (
     <Card className="rounded-3xl">
@@ -30,27 +121,48 @@ export function StudentsPage() {
           <CardTitle>Students</CardTitle>
           <p className="mt-1 text-sm text-slate-500">Manage student profiles, seats, contact info, and payment status.</p>
         </div>
-        <AddStudentDialog onSubmit={createStudent} />
+        <AddStudentDialog
+          onSubmit={async (formData) => {
+            await createStudent(formData);
+            await loadStudents(page);
+          }}
+        />
       </CardHeader>
       <CardContent>
+        {endingSoonStudents.length ? (
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {endingSoonStudents.length === 1
+              ? `${endingSoonStudents[0].name}'s shift is about to end.`
+              : `${endingSoonStudents.length} students have shifts ending within 30 minutes.`}
+          </div>
+        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Student Name</TableHead>
               <TableHead>Seat Number</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Join Date</TableHead>
+              <TableHead>Timer / Shift</TableHead>
               <TableHead>Payment Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {libraryData?.students.map((student) => (
-              <TableRow key={student.id}>
+            {students.map((student) => {
+              const liveTimer = getLiveTimer(student);
+              const shiftWarning = getShiftWarning(student);
+
+              return (
+              <TableRow className={shiftWarning ? "bg-rose-50/60" : ""} key={student.id}>
                 <TableCell className="font-medium text-slate-900">{student.name}</TableCell>
                 <TableCell>{student.seatNumber}</TableCell>
                 <TableCell>{student.phone}</TableCell>
-                <TableCell>{new Date(student.joinDate).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <div className={shiftWarning ? "font-semibold text-rose-600" : "text-slate-700"}>
+                    {liveTimer || student.shiftTiming || student.shift || "-"}
+                  </div>
+                  {shiftWarning ? <div className="text-xs text-rose-500">{shiftWarning.text}</div> : null}
+                </TableCell>
                 <TableCell>
                   <Badge variant={paymentVariant(student.paymentStatus)}>{student.paymentStatus}</Badge>
                 </TableCell>
@@ -64,10 +176,14 @@ export function StudentsPage() {
                         address: student.address,
                         seatNumber: student.seatNumber,
                         shift: student.shift,
+                        shiftTiming: student.shiftTiming,
                         paymentStatus: student.paymentStatus,
                         hoursSpent: String(student.hoursSpent || 0),
                       }}
-                      onSubmit={(formData) => updateStudent(student.id, formData)}
+                      onSubmit={async (formData) => {
+                        await updateStudent(student.id, formData);
+                        await loadStudents(page);
+                      }}
                       submitLabel="Update Student"
                       title="Edit Student"
                       trigger={
@@ -76,7 +192,14 @@ export function StudentsPage() {
                         </Button>
                       }
                     />
-                    <Button size="icon" variant="ghost" onClick={() => deleteStudent(student.id)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={async () => {
+                        await deleteStudent(student.id);
+                        await loadStudents(page);
+                      }}
+                    >
                       <Trash2 className="h-4 w-4 text-rose-600" />
                     </Button>
                     <Dialog>
@@ -95,6 +218,9 @@ export function StudentsPage() {
                           <p><span className="font-semibold text-slate-900">Phone:</span> {student.phone}</p>
                           <p><span className="font-semibold text-slate-900">Address:</span> {student.address}</p>
                           <p><span className="font-semibold text-slate-900">Shift:</span> {student.shift}</p>
+                          <p><span className="font-semibold text-slate-900">Shift Timing:</span> {student.shiftTiming || "-"}</p>
+                          <p><span className="font-semibold text-slate-900">Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
+                          {shiftWarning ? <p className="text-rose-600"><span className="font-semibold text-rose-700">Alert:</span> {shiftWarning.text}</p> : null}
                           <p><span className="font-semibold text-slate-900">Login ID:</span> {student.loginId || "Issued after payment is marked paid"}</p>
                           <p><span className="font-semibold text-slate-900">Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
                           <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
@@ -104,9 +230,22 @@ export function StudentsPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+          <span>
+            Page {pagination?.page || 1} of {pagination?.totalPages || 1}
+          </span>
+          <div className="flex gap-2">
+            <Button disabled={!pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
+              Previous
+            </Button>
+            <Button disabled={!pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
+              Next
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

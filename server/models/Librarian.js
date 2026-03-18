@@ -44,4 +44,7 @@ const librarianSchema = new mongoose.Schema(
   }
 );
 
+librarianSchema.index({ libraryId: 1, createdAt: -1 });
+librarianSchema.index({ libraryId: 1, role: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Librarian", librarianSchema);

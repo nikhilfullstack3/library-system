@@ -7,8 +7,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
-
-const apiBaseUrl = "http://127.0.0.1:5001";
+import { API_ORIGIN } from "../../lib/api";
 
 export function StudentProfilePage() {
   const {
@@ -70,7 +69,7 @@ export function StudentProfilePage() {
                   <img
                     alt={studentData?.student.name || "Profile"}
                     className="relative h-24 w-24 rounded-3xl object-cover ring-4 ring-white/90"
-                    src={`${apiBaseUrl}${studentData.student.profilePhotoUrl}`}
+                    src={`${API_ORIGIN}${studentData.student.profilePhotoUrl}`}
                   />
                 ) : (
                   <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
@@ -123,7 +122,7 @@ export function StudentProfilePage() {
                     <a
                       key={document.id}
                       className="block rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50"
-                      href={`${apiBaseUrl}${document.fileUrl}`}
+                      href={/^https?:\/\//i.test(document.fileUrl || "") ? document.fileUrl : `${API_ORIGIN}${document.fileUrl}`}
                       rel="noreferrer"
                       target="_blank"
                     >
