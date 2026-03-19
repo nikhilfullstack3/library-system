@@ -24,6 +24,7 @@ const {
   registerStudent,
   updateStudentProfile,
   updateChatAccess,
+  updateStudentDocumentVerification,
   updateStudent,
 } = require("../controllers/dashboardControllers");
 const { loginLibrarian, loginStudent, loginSuperAdmin } = require("../controllers/loginControllers");
@@ -60,6 +61,12 @@ router.patch(
 );
 router.post("/libraries/:libraryId/students/:studentId/change-password", requireAuth, requireStudentSelf, changeStudentPassword);
 router.post("/libraries/:libraryId/students", requireAuth, requireRole("admin", "librarian", "super_admin"), upload.array("documents", 5), registerStudent);
+router.patch(
+  "/libraries/:libraryId/students/:studentId/document-verification",
+  requireAuth,
+  requireRole("admin", "librarian", "super_admin"),
+  updateStudentDocumentVerification
+);
 router.patch("/libraries/:libraryId/students/:studentId", requireAuth, requireRole("admin", "librarian", "super_admin"), upload.single("document"), updateStudent);
 router.delete("/libraries/:libraryId/students/:studentId", requireAuth, requireRole("admin", "librarian", "super_admin"), deleteStudent);
 router.get("/libraries/:libraryId/seats", requireAuth, requireRole("admin", "librarian", "super_admin"), getSeats);

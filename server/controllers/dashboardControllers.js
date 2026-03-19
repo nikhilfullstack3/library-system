@@ -1254,6 +1254,55 @@ exports.updateChatAccess = async (req, res) => {
   }
 };
 
+exports.updateStudentDocumentVerification = async (req, res) => {
+  try {
+    const { verified } = req.body;
+    const normalizedVerified = verified === true || verified === "true";
+    const student = await Student.findOne({
+      _id: req.params.studentId,
+      libraryId: req.params.libraryId,
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const documents = await Document.find({
+      libraryId: req.params.libraryId,
+      studentId: req.params.studentId,
+    });
+
+    if (!documents.length) {
+      return res.status(404).json({ message: "No uploaded documents found for this student" });
+    }
+
+    await Document.updateMany(
+      {
+        libraryId: req.params.libraryId,
+        studentId: req.params.studentId,
+      },
+      {
+        $set: {
+          status: normalizedVerified ? "verified" : "pending review",
+        },
+      }
+    );
+
+    const [enrichedStudent] = await enrichStudentsWithDocumentStatus([student]);
+
+    return res.json({
+      message: normalizedVerified ? "Documents marked as verified" : "Documents marked as not verified",
+      documentVerificationStatus: enrichedStudent.documentVerificationStatus,
+      student: buildStudentPayload(enrichedStudent),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to update document verification",
+      error: error.message,
+    });
+  }
+};
+
 exports.getStudents = async (req, res) => {
   try {
     const { page, limit, skip } = getPageOptions(req.query, 50);

@@ -234,6 +234,13 @@ export function AuthProvider({ children }) {
     });
   }
 
+  async function updateStudentDocumentVerification(studentId, verified) {
+    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}/document-verification`, {
+      method: "PATCH",
+      body: { verified },
+    });
+  }
+
   async function deleteStudent(studentId) {
     return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}`, {
       method: "DELETE",
@@ -419,6 +426,7 @@ export function AuthProvider({ children }) {
       studentData,
       updateStudentProfile,
       updateChatAccess,
+      updateStudentDocumentVerification,
       updateStudent,
       fetchSuperAdminLibrary,
     }),

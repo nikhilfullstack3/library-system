@@ -98,9 +98,10 @@ function getShiftWarning(student) {
 }
 
 export function StudentsPage() {
-  const { createStudent, deleteStudent, fetchStudents, updateStudent } = useAuth();
+  const { deleteStudent, fetchStudents, updateStudent, updateStudentDocumentVerification } = useAuth();
   const [page, setPage] = useState(1);
   const [studentResponse, setStudentResponse] = useState({ items: [], pagination: null });
+  const [updatingVerificationId, setUpdatingVerificationId] = useState("");
   const [, setTimerTick] = useState(0);
 
   function loadStudents(nextPage = page) {
@@ -127,12 +128,6 @@ export function StudentsPage() {
           <CardTitle>Students</CardTitle>
           <p className="mt-1 text-sm text-slate-500">Manage student profiles, seats, contact info, and document verification.</p>
         </div>
-        <AddStudentDialog
-          onSubmit={async (formData) => {
-            await createStudent(formData);
-            await loadStudents(page);
-          }}
-        />
       </CardHeader>
       <CardContent>
         {endingSoonStudents.length ? (
@@ -236,6 +231,31 @@ export function StudentsPage() {
                             {documentLabel(student.documentVerificationStatus)}
                           </p>
                           <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
+                          <div className="pt-2">
+                            <Button
+                              disabled={updatingVerificationId === student.id || !student.documents.length}
+                              onClick={async () => {
+                                setUpdatingVerificationId(student.id);
+                                try {
+                                  await updateStudentDocumentVerification(
+                                    student.id,
+                                    student.documentVerificationStatus !== "verified"
+                                  );
+                                  await loadStudents(page);
+                                } finally {
+                                  setUpdatingVerificationId("");
+                                }
+                              }}
+                              type="button"
+                              variant={student.documentVerificationStatus === "verified" ? "outline" : "default"}
+                            >
+                              {updatingVerificationId === student.id
+                                ? "Updating..."
+                                : student.documentVerificationStatus === "verified"
+                                  ? "Mark As Not Verified"
+                                  : "Mark As Verified"}
+                            </Button>
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
