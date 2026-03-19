@@ -1,6 +1,6 @@
 import React from "react";
-import { Redirect } from "expo-router";
+import { StudentChatScreen } from "../../src/screens/StudentChatScreen";
 
-export default function StudentChatTabRedirect() {
-  return <Redirect href="/student-chat" />;
+export default function StudentChatTab() {
+  return <StudentChatScreen />;
 }

@@ -15,7 +15,7 @@ export default function IndexScreen() {
   }
 
   if (session.role === "student") {
-    return <Redirect href="/student-chat" />;
+    return <Redirect href="/(student)" />;
   }
 
   if (session.role === "super_admin") {

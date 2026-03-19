@@ -1,6 +1,6 @@
 import React from "react";
-import { Redirect } from "expo-router";
+import { LibrarianChatScreen } from "../../src/screens/LibrarianChatScreen";
 
-export default function LibrarianChatTabRedirect() {
-  return <Redirect href="/librarian-chat" />;
+export default function LibrarianChatTab() {
+  return <LibrarianChatScreen />;
 }
