@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { AddStudentDialog } from "../../components/students/AddStudentDialog";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -95,6 +96,48 @@ function getShiftWarning(student) {
     isWarning: true,
     text: `Shift ends in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`,
   };
+}
+
+function downloadStudentPdf(student, liveTimer, shiftWarning) {
+  const doc = new jsPDF();
+  const lines = [
+    "Student Information",
+    "",
+    `Name: ${student.name}`,
+    `Seat: ${student.seatNumber || "-"}`,
+    `Phone: ${student.phone || "-"}`,
+    `Email: ${student.email || "-"}`,
+    `Address: ${student.address || "-"}`,
+    `Shift: ${student.shift || "-"}`,
+    `Shift Timing: ${student.shiftTiming || "-"}`,
+    `Live Timer: ${liveTimer || student.shiftTiming || "-"}`,
+    `Login ID: ${student.loginId || "Issued after payment is marked paid"}`,
+    `Password: ${student.issuedPassword || "Issued after payment is marked paid"}`,
+    `Document Verification: ${documentLabel(student.documentVerificationStatus)}`,
+    `Documents: ${(student.documents || []).join(", ") || "None"}`,
+  ];
+
+  if (shiftWarning?.text) {
+    lines.push(`Alert: ${shiftWarning.text}`);
+  }
+
+  let y = 20;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("Library System", 14, y);
+  y += 10;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+
+  lines.forEach((line) => {
+    const wrapped = doc.splitTextToSize(line, 180);
+    doc.text(wrapped, 14, y);
+    y += wrapped.length * 7;
+  });
+
+  const fileName = `${String(student.name || "student").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "student"}-info.pdf`;
+  doc.save(fileName);
 }
 
 export function StudentsPage() {
@@ -231,6 +274,15 @@ export function StudentsPage() {
                             {documentLabel(student.documentVerificationStatus)}
                           </p>
                           <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
+                          <div className="pt-2">
+                            <Button
+                              onClick={() => downloadStudentPdf(student, liveTimer, shiftWarning)}
+                              type="button"
+                              variant="secondary"
+                            >
+                              Download PDF
+                            </Button>
+                          </div>
                           <div className="pt-2">
                             <Button
                               disabled={updatingVerificationId === student.id || !student.documents.length}
