@@ -83,7 +83,7 @@ export function SuperAdminDashboardPage() {
 
               return (
                 <div className="space-y-3 rounded-[1.75rem] border border-emerald-100 bg-emerald-50/30 p-4" key={locationGroup.location}>
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-lg font-semibold text-slate-900">{locationGroup.location}</p>
                       <p className="text-sm text-slate-500">{locationLibraries.length} libraries</p>
@@ -102,7 +102,7 @@ export function SuperAdminDashboardPage() {
                           <p className="text-lg font-semibold text-slate-900">{library.name}</p>
                           <p className="mt-1 text-sm text-slate-500">{library.contactEmail}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-3 lg:min-w-[22rem] sm:grid-cols-4">
                           <StatPill label="Students" value={library.totalStudents} />
                           <StatPill label="Revenue" value={`Rs ${library.totalRevenue}`} />
                           <StatPill label="Librarians" value={library.totalLibrarians} />

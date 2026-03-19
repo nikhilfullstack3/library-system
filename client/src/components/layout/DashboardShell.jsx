@@ -35,7 +35,7 @@ export function DashboardShell() {
                 <div className="absolute bottom-0 left-1/2 h-20 w-40 -translate-x-1/2 rounded-full bg-white/60 blur-3xl" />
 
                 <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start">
-                  <div className="flex-1 text-center">
+                  <div className="flex-1 text-center lg:text-left">
                     <div className="mx-auto inline-flex items-center rounded-full border border-emerald-200/80 bg-white/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700 shadow-sm">
                       Library Study Room Management System
                     </div>
@@ -47,20 +47,20 @@ export function DashboardShell() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:ml-auto lg:self-center">
-                    <div className="flex items-center gap-2 rounded-2xl border border-white/90 bg-white/80 px-3 py-2 text-slate-500 shadow-sm backdrop-blur">
-                  <Search className="h-4 w-4" />
-                  <input
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400 sm:w-56"
-                    placeholder="Search students, seats..."
-                  />
-                </div>
+                  <div className="w-full flex-col gap-3 sm:flex sm:flex-row sm:items-center lg:ml-auto lg:w-auto lg:self-center">
+                    <div className="flex w-full items-center gap-2 rounded-2xl border border-white/90 bg-white/80 px-3 py-2 text-slate-500 shadow-sm backdrop-blur sm:w-auto">
+                      <Search className="h-4 w-4 shrink-0" />
+                      <input
+                        className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400 sm:w-56"
+                        placeholder="Search students, seats..."
+                      />
+                    </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button className="border-white/90 bg-white/80 shadow-sm backdrop-blur" size="icon" variant="outline">
                         <Bell className="h-4 w-4" />
                       </Button>
-                      <Button className="gap-2 border-white/90 bg-white/80 shadow-sm backdrop-blur" onClick={logout} variant="outline">
+                      <Button className="w-full gap-2 border-white/90 bg-white/80 shadow-sm backdrop-blur sm:w-auto" onClick={logout} variant="outline">
                         Logout
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -71,7 +71,7 @@ export function DashboardShell() {
             </div>
 
             <div className="border-t border-slate-200 px-4 py-3 md:hidden">
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {mobileLinks.map((link) => {
                   const Icon = link.icon;
 

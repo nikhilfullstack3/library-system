@@ -17,10 +17,16 @@ import { useAuth } from "../../context/AuthContext";
 
 const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
-function paymentVariant(status) {
-  if (status === "paid") return "success";
-  if (status === "pending") return "warning";
-  return "destructive";
+function documentVariant(status) {
+  if (status === "verified") return "success";
+  if (status === "not verified") return "warning";
+  return "secondary";
+}
+
+function documentLabel(status) {
+  if (status === "verified") return "Verified";
+  if (status === "not verified") return "Not Verified";
+  return "Not Uploaded";
 }
 
 function getShiftEndDate(student) {
@@ -119,7 +125,7 @@ export function StudentsPage() {
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Students</CardTitle>
-          <p className="mt-1 text-sm text-slate-500">Manage student profiles, seats, contact info, and payment status.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage student profiles, seats, contact info, and document verification.</p>
         </div>
         <AddStudentDialog
           onSubmit={async (formData) => {
@@ -143,7 +149,7 @@ export function StudentsPage() {
               <TableHead>Seat Number</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Timer / Shift</TableHead>
-              <TableHead>Payment Status</TableHead>
+              <TableHead>Document Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -164,7 +170,9 @@ export function StudentsPage() {
                   {shiftWarning ? <div className="text-xs text-rose-500">{shiftWarning.text}</div> : null}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={paymentVariant(student.paymentStatus)}>{student.paymentStatus}</Badge>
+                  <Badge variant={documentVariant(student.documentVerificationStatus)}>
+                    {documentLabel(student.documentVerificationStatus)}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
@@ -223,6 +231,10 @@ export function StudentsPage() {
                           {shiftWarning ? <p className="text-rose-600"><span className="font-semibold text-rose-700">Alert:</span> {shiftWarning.text}</p> : null}
                           <p><span className="font-semibold text-slate-900">Login ID:</span> {student.loginId || "Issued after payment is marked paid"}</p>
                           <p><span className="font-semibold text-slate-900">Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
+                          <p>
+                            <span className="font-semibold text-slate-900">Document Verification:</span>{" "}
+                            {documentLabel(student.documentVerificationStatus)}
+                          </p>
                           <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
                         </div>
                       </DialogContent>
@@ -233,15 +245,15 @@ export function StudentsPage() {
             )})}
           </TableBody>
         </Table>
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>
             Page {pagination?.page || 1} of {pagination?.totalPages || 1}
           </span>
-          <div className="flex gap-2">
-            <Button disabled={!pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button className="flex-1 sm:flex-none" disabled={!pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
               Previous
             </Button>
-            <Button disabled={!pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
+            <Button className="flex-1 sm:flex-none" disabled={!pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
               Next
             </Button>
           </div>

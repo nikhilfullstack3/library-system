@@ -159,6 +159,7 @@ function buildStudentPayload(student) {
     fullDay: student.fullDay,
     paymentStatus: student.paymentStatus,
     paymentMode: student.paymentMode,
+    documentVerificationStatus: student.documentVerificationStatus || "not uploaded",
     loginId: student.loginId,
     issuedPassword: student.issuedPassword,
     loginEnabled: student.loginEnabled,
@@ -170,6 +171,39 @@ function buildStudentPayload(student) {
     chatEnabled: student.chatEnabled,
     createdAt: student.createdAt,
   };
+}
+
+async function enrichStudentsWithDocumentStatus(students) {
+  if (!students.length) {
+    return students;
+  }
+
+  const studentIds = students.map((student) => student._id);
+  const documents = await Document.find({
+    studentId: { $in: studentIds },
+  })
+    .select("studentId status createdAt")
+    .sort({ createdAt: -1 });
+
+  const statusMap = new Map();
+
+  for (const document of documents) {
+    const key = String(document.studentId);
+
+    if (!statusMap.has(key)) {
+      statusMap.set(key, document.status === "verified" ? "verified" : "not verified");
+      continue;
+    }
+
+    if (document.status !== "verified") {
+      statusMap.set(key, "not verified");
+    }
+  }
+
+  return students.map((student) => {
+    student.documentVerificationStatus = statusMap.get(String(student._id)) || "not uploaded";
+    return student;
+  });
 }
 
 function buildShiftTiming(startTime = "", endTime = "", fullDay = false) {
@@ -1239,7 +1273,8 @@ exports.getStudents = async (req, res) => {
       Student.countDocuments(query),
       Student.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
     ]);
-    const enrichedStudents = await enrichStudentsWithLiveSessions(req.params.libraryId, students);
+    const liveStudents = await enrichStudentsWithLiveSessions(req.params.libraryId, students);
+    const enrichedStudents = await enrichStudentsWithDocumentStatus(liveStudents);
 
     return res.json(buildPaginatedResponse(enrichedStudents.map(buildStudentPayload), page, limit, total));
   } catch (error) {
@@ -1261,7 +1296,8 @@ exports.getStudentById = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    return res.json(buildStudentPayload(student));
+    const [enrichedStudent] = await enrichStudentsWithDocumentStatus([student]);
+    return res.json(buildStudentPayload(enrichedStudent));
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load student",

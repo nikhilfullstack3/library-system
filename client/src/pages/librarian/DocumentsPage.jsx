@@ -45,15 +45,15 @@ export function DocumentsPage() {
             ))}
           </TableBody>
         </Table>
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>
             Page {documentResponse.pagination?.page || 1} of {documentResponse.pagination?.totalPages || 1}
           </span>
-          <div className="flex gap-2">
-            <Button disabled={!documentResponse.pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button className="flex-1 sm:flex-none" disabled={!documentResponse.pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
               Previous
             </Button>
-            <Button disabled={!documentResponse.pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
+            <Button className="flex-1 sm:flex-none" disabled={!documentResponse.pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
               Next
             </Button>
           </div>

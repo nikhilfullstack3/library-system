@@ -20,7 +20,7 @@ export function SuperAdminShell() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),transparent_18%),linear-gradient(180deg,#f8fffa_0%,#eef9f1_100%)] text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-6 sm:px-6">
+      <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-4 sm:px-6 sm:py-6">
         <aside className="hidden w-72 shrink-0 rounded-[2rem] border border-emerald-100 bg-white/85 p-4 shadow-[0_24px_80px_-48px_rgba(22,101,52,0.35)] backdrop-blur-xl lg:flex lg:flex-col">
           <div className="rounded-[1.75rem] border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
@@ -72,6 +72,28 @@ export function SuperAdminShell() {
         </aside>
 
         <div className="flex-1">
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {links.map((link) => {
+              const Icon = link.icon;
+
+              return (
+                <NavLink
+                  key={link.to}
+                  className={({ isActive }) =>
+                    `inline-flex min-w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      isActive ? "border-emerald-200 bg-emerald-600 text-white" : "border-emerald-100 bg-white text-slate-600"
+                    }`
+                  }
+                  end={link.to === "/super-admin"}
+                  to={link.to}
+                >
+                  <Icon className="h-4 w-4" />
+                  {link.label}
+                </NavLink>
+              );
+            })}
+          </div>
+
           <header className="rounded-[2rem] border border-emerald-100 bg-white/82 px-5 py-5 shadow-[0_20px_60px_-44px_rgba(22,101,52,0.28)] backdrop-blur-xl">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -83,7 +105,7 @@ export function SuperAdminShell() {
                 <p className="mt-1 text-sm text-slate-600">Register new libraries here and keep the rest of the view focused on libraries by location.</p>
               </div>
               <button
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 sm:w-auto"
                 onClick={logout}
                 type="button"
               >

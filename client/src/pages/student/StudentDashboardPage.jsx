@@ -199,19 +199,19 @@ export function StudentDashboardPage() {
   return (
     <div className="min-h-screen bg-[#f3fbf5]">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 flex justify-end gap-2">
-          <Button onClick={() => navigate("/student/profile")} variant="outline">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button className="w-full sm:w-auto" onClick={() => navigate("/student/profile")} variant="outline">
             <UserRound className="mr-2 h-4 w-4" />
             Profile
           </Button>
-          <Button onClick={logout} variant="outline">
+          <Button className="w-full sm:w-auto" onClick={logout} variant="outline">
             Logout
           </Button>
         </div>
 
-        <Card className="h-[calc(100vh-10rem)] overflow-hidden rounded-[2rem]">
-          <CardContent className="flex h-full flex-col p-0">
-            <div className={`flex items-center justify-between px-5 py-3 text-sm ${shiftWarning ? "bg-rose-50 text-rose-700" : "bg-[#e4f3e8] text-slate-700"}`}>
+        <Card className="overflow-hidden rounded-[2rem]">
+          <CardContent className="flex min-h-[70dvh] flex-col p-0 sm:min-h-[calc(100vh-10rem)]">
+            <div className={`flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5 ${shiftWarning ? "bg-rose-50 text-rose-700" : "bg-[#e4f3e8] text-slate-700"}`}>
               <div>
                 <p className={`font-semibold ${shiftWarning ? "text-rose-700" : "text-slate-900"}`}>
                   {student?.currentlyInLibrary ? "Checked In" : "Checked Out"}
@@ -220,7 +220,7 @@ export function StudentDashboardPage() {
                   {student?.currentlyInLibrary ? `Live timer ${attendanceDisplay}` : `Shift ${attendanceDisplay}`}
                 </p>
               </div>
-              {shiftWarning ? <p className="text-right text-xs font-semibold text-rose-600">{shiftWarning}</p> : null}
+              {shiftWarning ? <p className="text-xs font-semibold text-rose-600 sm:max-w-xs sm:text-right">{shiftWarning}</p> : null}
             </div>
             <div className="flex-1 bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_100%)] p-4">
               <div className="h-full space-y-3 overflow-y-auto px-1 py-2">
@@ -231,7 +231,7 @@ export function StudentDashboardPage() {
                   return (
                     <div key={message.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-sm ${
+                        className={`max-w-[92%] rounded-[22px] px-4 py-3 shadow-sm sm:max-w-[82%] ${
                           isOwnMessage
                             ? "rounded-br-md bg-[#dcf8c6] text-slate-900"
                             : "rounded-bl-md border border-slate-200 bg-white text-slate-900"
@@ -279,7 +279,7 @@ export function StudentDashboardPage() {
             </div>
 
             <form className="bg-[#edf7ef] p-4" onSubmit={handleSendMessage}>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <label className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200">
                   <Paperclip className="h-5 w-5" />
                   <input className="hidden" type="file" onChange={(event) => setChatAttachment(event.target.files?.[0] || null)} />
@@ -291,7 +291,7 @@ export function StudentDashboardPage() {
                   value={chatInput}
                   onChange={(event) => setChatInput(event.target.value)}
                 />
-                <Button className="rounded-full bg-emerald-600 hover:bg-emerald-700" disabled={sending || !studentData?.student.chatEnabled} type="submit">
+                <Button className="w-full rounded-full bg-emerald-600 hover:bg-emerald-700 sm:w-auto" disabled={sending || !studentData?.student.chatEnabled} type="submit">
                   {sending ? "Sending..." : "Send"}
                 </Button>
               </div>
