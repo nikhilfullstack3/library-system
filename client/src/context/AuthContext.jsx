@@ -142,13 +142,13 @@ export function AuthProvider({ children }) {
         role: "student",
         studentId: data.session.studentId,
         libraryId: data.session.libraryId,
-        name: data.dashboard.student.name,
+        name: data.student.name,
         email,
         token: data.token,
       };
       setAuthToken(nextSession.token || "");
       setSession(nextSession);
-      setStudentData(data.dashboard);
+      setStudentData(null);
       setLibraryData(null);
       return nextSession;
     }
@@ -163,7 +163,7 @@ export function AuthProvider({ children }) {
       };
       setAuthToken(nextSession.token || "");
       setSession(nextSession);
-      setSuperAdminData(data.dashboard);
+      setSuperAdminData(null);
       setLibraryData(null);
       setStudentData(null);
       return nextSession;
@@ -179,7 +179,7 @@ export function AuthProvider({ children }) {
     };
     setAuthToken(nextSession.token || "");
     setSession(nextSession);
-    setLibraryData(data.dashboard);
+    setLibraryData(null);
     setSuperAdminData(null);
     setStudentData(null);
     return nextSession;

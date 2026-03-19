@@ -3,8 +3,6 @@ const Student = require("../models/Student");
 const SuperAdmin = require("../models/SuperAdmin");
 const { verifyPassword } = require("../utils/password");
 const { createSessionToken } = require("../utils/sessionToken");
-const { buildLibraryDashboard, buildSuperAdminDashboard, getStudentDashboard } = require("./dashboardControllers");
-
 exports.loginLibrarian = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -51,7 +49,6 @@ exports.loginLibrarian = async (req, res) => {
         role: librarian.role,
         library: librarian.libraryId,
       },
-      dashboard: await buildLibraryDashboard(librarian.libraryId?._id || librarian.libraryId),
     });
   } catch (error) {
     return res.status(500).json({
@@ -106,7 +103,12 @@ exports.loginStudent = async (req, res) => {
       message: "Login successful",
       session,
       token: createSessionToken(session),
-      dashboard: await getStudentDashboard(student._id),
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        library: student.libraryId,
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -158,7 +160,6 @@ exports.loginSuperAdmin = async (req, res) => {
         name: superAdmin.name,
         email: superAdmin.email,
       },
-      dashboard: await buildSuperAdminDashboard(),
     });
   } catch (error) {
     return res.status(500).json({
