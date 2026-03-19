@@ -912,6 +912,44 @@ async function repairLegacyLibraryData(libraryId) {
   }
 }
 
+async function seedDefaultChatMessages(libraryId) {
+  const existingMessages = await ChatMessage.countDocuments({ libraryId });
+  if (existingMessages > 0) {
+    return;
+  }
+
+  const admin = await Librarian.findOne({ libraryId, role: "admin" }).sort({ createdAt: 1 });
+  const student = await Student.findOne({ libraryId }).sort({ createdAt: 1 });
+
+  const demoMessages = [];
+
+  if (admin) {
+    demoMessages.push({
+      libraryId,
+      senderId: admin._id,
+      senderName: admin.name,
+      senderRole: "admin",
+      tag: "announcement",
+      message: "Welcome to the study room chat. Share seat updates here.",
+    });
+  }
+
+  if (student) {
+    demoMessages.push({
+      libraryId,
+      senderId: student._id,
+      senderName: student.name,
+      senderRole: "student",
+      tag: "seat-update",
+      message: `I am in Seat ${student.seatNumber} for the shift.`,
+    });
+  }
+
+  if (demoMessages.length) {
+    await ChatMessage.insertMany(demoMessages);
+  }
+}
+
 async function createDefaultLibrary() {
   const existingLibrary = await Library.findOne().sort({ createdAt: 1 });
 
@@ -923,25 +961,6 @@ async function createDefaultLibrary() {
     await ensureSeats(existingLibrary._id);
     await seedDemoStudents(existingLibrary._id);
     await repairLegacyLibraryData(existingLibrary._id);
-    const existingMessages = await ChatMessage.countDocuments({ libraryId: existingLibrary._id });
-    if (existingMessages === 0) {
-      await ChatMessage.insertMany([
-        {
-          libraryId: existingLibrary._id,
-          senderName: "Priya Verma",
-          senderRole: "admin",
-          tag: "announcement",
-          message: "Welcome to the study room chat. Share seat updates here.",
-        },
-        {
-          libraryId: existingLibrary._id,
-          senderName: "Aarav Sharma",
-          senderRole: "student",
-          tag: "seat-update",
-          message: "I am in Seat 1 for the morning shift.",
-        },
-      ]);
-    }
     const adminPassword = await hashPassword("admin123");
     const staffPassword = await hashPassword("librarian123");
     const adminAccount = await Librarian.findOne({ email: "admin@library.com" });
@@ -983,6 +1002,7 @@ async function createDefaultLibrary() {
         password: superAdminPassword,
       });
     }
+    await seedDefaultChatMessages(existingLibrary._id);
     return existingLibrary;
   }
 
@@ -1018,25 +1038,7 @@ async function createDefaultLibrary() {
 
   await seedDemoStudents(library._id);
   await repairLegacyLibraryData(library._id);
-  const existingMessages = await ChatMessage.countDocuments({ libraryId: library._id });
-  if (existingMessages === 0) {
-    await ChatMessage.insertMany([
-      {
-        libraryId: library._id,
-        senderName: "Priya Verma",
-        senderRole: "admin",
-        tag: "announcement",
-        message: "Welcome to the study room chat. Share seat updates here.",
-      },
-      {
-        libraryId: library._id,
-        senderName: "Aarav Sharma",
-        senderRole: "student",
-        tag: "seat-update",
-        message: "I am in Seat 1 for the morning shift.",
-      },
-    ]);
-  }
+  await seedDefaultChatMessages(library._id);
   const defaultStudent = await Student.findOne({ libraryId: library._id }).sort({ createdAt: 1 });
   if (defaultStudent) {
     defaultStudent.email = "student@library.com";
