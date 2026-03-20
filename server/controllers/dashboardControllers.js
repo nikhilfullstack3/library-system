@@ -303,6 +303,7 @@ function buildDocumentPayload(document) {
     studentId: document.studentId?._id || null,
     seat: document.seatNumber,
     document: document.name,
+    fileName: document.fileName,
     uploadedAt: document.createdAt,
     status: document.status,
     fileUrl: document.fileUrl,
@@ -519,7 +520,7 @@ async function checkOutStudent(libraryId, student) {
   return record;
 }
 
-async function createDocumentRecords(student, documents, files = []) {
+async function createDocumentRecords(student, documents, files = [], fileLabels = []) {
   const created = [];
 
   if (Array.isArray(documents) && documents.length) {
@@ -538,14 +539,15 @@ async function createDocumentRecords(student, documents, files = []) {
     }
   }
 
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     const stored = await saveUpload(file, { prefix: "documents" });
+    const label = String(fileLabels[index] || file.originalname || "").trim() || file.originalname;
     created.push(
       await Document.create({
         libraryId: student.libraryId,
         studentId: student._id,
         seatNumber: student.seatNumber,
-        name: file.originalname,
+        name: label,
         fileName: stored.fileName,
         fileUrl: stored.url,
         status: "pending review",
@@ -915,6 +917,11 @@ async function repairLegacyLibraryData(libraryId) {
 
     if (!student.address) {
       student.address = "Library member address";
+      changed = true;
+    }
+
+    if (!student.loginId) {
+      student.loginId = generateStudentLoginId(student);
       changed = true;
     }
 
@@ -1345,8 +1352,20 @@ exports.getStudentById = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const [enrichedStudent] = await enrichStudentsWithDocumentStatus([student]);
-    return res.json(buildStudentPayload(enrichedStudent));
+    const [enrichedStudent, documents] = await Promise.all([
+      enrichStudentsWithDocumentStatus([student]).then((items) => items[0]),
+      Document.find({
+        studentId: req.params.studentId,
+        libraryId: req.params.libraryId,
+      })
+        .populate("studentId")
+        .sort({ createdAt: -1 }),
+    ]);
+
+    return res.json({
+      ...buildStudentPayload(enrichedStudent),
+      uploadedDocuments: documents.map(buildDocumentPayload),
+    });
   } catch (error) {
     return res.status(500).json({
       message: "Unable to load student",
@@ -1393,11 +1412,14 @@ exports.registerStudent = async (req, res) => {
       return res.status(409).json({ message: "A student with this email already exists" });
     }
 
+    const studentId = new mongoose.Types.ObjectId();
     const student = await Student.create({
+      _id: studentId,
       libraryId,
       name: name.trim(),
       email: normalizedEmail,
       password: await hashPassword(password),
+      loginId: generateStudentLoginId({ _id: studentId, name: name.trim(), seatNumber: assignedSeatNumber }),
       phone: phone.trim(),
       address: address.trim(),
       seatNumber: assignedSeatNumber,
@@ -1489,14 +1511,18 @@ exports.updateStudent = async (req, res) => {
       getDefaultShiftTiming(student.shift);
 
     const uploadedFiles = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+    const requestedDocumentName = String(req.body.documentName || "").trim();
+    const uploadedDocumentNames = uploadedFiles.map((file, index) =>
+      index === 0 && requestedDocumentName ? requestedDocumentName : file.originalname
+    );
     if (uploadedFiles.length) {
-      student.documents = [...student.documents, ...uploadedFiles.map((file) => file.originalname)];
+      student.documents = [...student.documents, ...uploadedDocumentNames];
     }
 
     await student.save();
 
     if (uploadedFiles.length) {
-      await createDocumentRecords(student, [], uploadedFiles);
+      await createDocumentRecords(student, [], uploadedFiles, uploadedDocumentNames);
     }
 
     if (previousSeat !== student.seatNumber) {

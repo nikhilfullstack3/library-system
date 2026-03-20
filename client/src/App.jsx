@@ -11,6 +11,7 @@ const DocumentsPage = lazy(() => import("./pages/librarian/DocumentsPage").then(
 const RegistrationPage = lazy(() => import("./pages/librarian/RegistrationPage").then((module) => ({ default: module.RegistrationPage })));
 const SeatsPage = lazy(() => import("./pages/librarian/SeatsPage").then((module) => ({ default: module.SeatsPage })));
 const StudentsPage = lazy(() => import("./pages/librarian/StudentsPage").then((module) => ({ default: module.StudentsPage })));
+const StudentDetailPage = lazy(() => import("./pages/librarian/StudentDetailPage").then((module) => ({ default: module.StudentDetailPage })));
 const ChatPage = lazy(() => import("./pages/librarian/ChatPage").then((module) => ({ default: module.ChatPage })));
 const SuperAdminDashboardPage = lazy(() => import("./pages/super-admin/SuperAdminDashboardPage").then((module) => ({ default: module.SuperAdminDashboardPage })));
 const SuperAdminLibraryPage = lazy(() => import("./pages/super-admin/SuperAdminLibraryPage").then((module) => ({ default: module.SuperAdminLibraryPage })));
@@ -49,6 +50,7 @@ function AppRoutes() {
         >
           <Route element={<DashboardPage />} index />
           <Route element={<StudentsPage />} path="students" />
+          <Route element={<StudentDetailPage />} path="students/:studentId" />
           <Route element={<RegistrationPage />} path="registration" />
           <Route element={<SeatsPage />} path="seats" />
           <Route element={<AttendancePage />} path="attendance" />

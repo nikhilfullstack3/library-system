@@ -1,6 +1,6 @@
 import { Bell, ChevronDown, FileText, LayoutDashboard, MessageCircleMore, Rows3, Search, SquareLibrary, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { AppSidebar } from "./AppSidebar";
 import { Button } from "../ui/button";
@@ -17,7 +17,44 @@ const mobileLinks = [
 
 export function DashboardShell() {
   const [collapsed, setCollapsed] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const { libraryData, logout, session } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchOriginRef = useRef("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchTerm(params.get("search") || "");
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const trimmedValue = searchTerm.trim();
+
+    if (!trimmedValue) {
+      if (location.pathname === "/librarian/students" && searchOriginRef.current) {
+        const origin = searchOriginRef.current;
+        searchOriginRef.current = "";
+        navigate(origin, { replace: true });
+      }
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (location.pathname !== "/librarian/students" && !searchOriginRef.current) {
+        searchOriginRef.current = `${location.pathname}${location.search}`;
+      }
+
+      const nextPath = trimmedValue ? `/librarian/students?search=${encodeURIComponent(trimmedValue)}` : "/librarian/students";
+      const currentPath = `${location.pathname}${location.search}`;
+
+      if (currentPath !== nextPath) {
+        navigate(nextPath, { replace: true });
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname, location.search, navigate, searchTerm]);
 
   return (
     <div className="min-h-screen bg-[#f3fbf5] text-slate-900">
@@ -51,8 +88,10 @@ export function DashboardShell() {
                     <div className="flex w-full items-center gap-2 rounded-2xl border border-white/90 bg-white/80 px-3 py-2 text-slate-500 shadow-sm backdrop-blur sm:w-auto">
                       <Search className="h-4 w-4 shrink-0" />
                       <input
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
                         className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400 sm:w-56"
-                        placeholder="Search students, seats..."
+                        placeholder="Search student by name or number"
                       />
                     </div>
 

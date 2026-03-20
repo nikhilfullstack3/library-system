@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
-import { jsPDF } from "jspdf";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AddStudentDialog } from "../../components/students/AddStudentDialog";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -55,7 +55,7 @@ function getShiftEndDate(student) {
 }
 
 function getLiveTimer(student) {
-  if (!student.currentlyInLibrary || !student.activeSessionStartedAt) {
+  if (student.fullDay || !student.currentlyInLibrary || !student.activeSessionStartedAt) {
     return null;
   }
 
@@ -98,62 +98,28 @@ function getShiftWarning(student) {
   };
 }
 
-function downloadStudentPdf(student, liveTimer, shiftWarning) {
-  const doc = new jsPDF();
-  const lines = [
-    "Student Information",
-    "",
-    `Name: ${student.name}`,
-    `Seat: ${student.seatNumber || "-"}`,
-    `Phone: ${student.phone || "-"}`,
-    `Email: ${student.email || "-"}`,
-    `Address: ${student.address || "-"}`,
-    `Shift: ${student.shift || "-"}`,
-    `Shift Timing: ${student.shiftTiming || "-"}`,
-    `Live Timer: ${liveTimer || student.shiftTiming || "-"}`,
-    `Login ID: ${student.loginId || "Issued after payment is marked paid"}`,
-    `Password: ${student.issuedPassword || "Issued after payment is marked paid"}`,
-    `Document Verification: ${documentLabel(student.documentVerificationStatus)}`,
-    `Documents: ${(student.documents || []).join(", ") || "None"}`,
-  ];
-
-  if (shiftWarning?.text) {
-    lines.push(`Alert: ${shiftWarning.text}`);
-  }
-
-  let y = 20;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("Library System", 14, y);
-  y += 10;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-
-  lines.forEach((line) => {
-    const wrapped = doc.splitTextToSize(line, 180);
-    doc.text(wrapped, 14, y);
-    y += wrapped.length * 7;
-  });
-
-  const fileName = `${String(student.name || "student").toLowerCase().replace(/[^a-z0-9]+/g, "-") || "student"}-info.pdf`;
-  doc.save(fileName);
-}
-
 export function StudentsPage() {
   const { deleteStudent, fetchStudents, updateStudent, updateStudentDocumentVerification } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [studentResponse, setStudentResponse] = useState({ items: [], pagination: null });
   const [updatingVerificationId, setUpdatingVerificationId] = useState("");
   const [, setTimerTick] = useState(0);
+  const searchQuery = searchParams.get("search")?.trim() || "";
 
-  function loadStudents(nextPage = page) {
-    return fetchStudents({ page: nextPage, limit: 25 }).then(setStudentResponse);
+  function loadStudents(nextPage = page, search = searchQuery) {
+    return fetchStudents({ page: nextPage, limit: 25, search }).then(setStudentResponse);
   }
 
   useEffect(() => {
-    loadStudents(page).catch(() => {});
-  }, [fetchStudents, page]);
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    loadStudents(page, searchQuery).catch(() => {});
+  }, [fetchStudents, page, searchQuery]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setTimerTick((value) => value + 1), 1000);
@@ -173,6 +139,11 @@ export function StudentsPage() {
         </div>
       </CardHeader>
       <CardContent>
+        {searchQuery ? (
+          <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+            Showing results for <span className="font-semibold">"{searchQuery}"</span>. Search matches student name, email, phone, or seat number.
+          </div>
+        ) : null}
         {endingSoonStudents.length ? (
           <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {endingSoonStudents.length === 1
@@ -192,13 +163,32 @@ export function StudentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {students.length === 0 ? (
+              <TableRow>
+                <TableCell className="py-8 text-center text-slate-500" colSpan={6}>
+                  {searchQuery ? "No students found for this search." : "No students available yet."}
+                </TableCell>
+              </TableRow>
+            ) : null}
             {students.map((student) => {
               const liveTimer = getLiveTimer(student);
               const shiftWarning = getShiftWarning(student);
 
               return (
               <TableRow className={shiftWarning ? "bg-rose-50/60" : ""} key={student.id}>
-                <TableCell className="font-medium text-slate-900">{student.name}</TableCell>
+                <TableCell className="font-medium text-slate-900">
+                  <button
+                    className="cursor-pointer text-sky-700 underline-offset-4 hover:text-sky-800 hover:underline"
+                    onClick={() =>
+                      navigate(
+                        `/librarian/students/${student.id}?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`
+                      )
+                    }
+                    type="button"
+                  >
+                    {student.name}
+                  </button>
+                </TableCell>
                 <TableCell>{student.seatNumber}</TableCell>
                 <TableCell>{student.phone}</TableCell>
                 <TableCell>
@@ -228,7 +218,7 @@ export function StudentsPage() {
                       }}
                       onSubmit={async (formData) => {
                         await updateStudent(student.id, formData);
-                        await loadStudents(page);
+                        await loadStudents(page, searchQuery);
                       }}
                       submitLabel="Update Student"
                       title="Edit Student"
@@ -243,7 +233,7 @@ export function StudentsPage() {
                       variant="ghost"
                       onClick={async () => {
                         await deleteStudent(student.id);
-                        await loadStudents(page);
+                        await loadStudents(page, searchQuery);
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-rose-600" />
@@ -267,22 +257,13 @@ export function StudentsPage() {
                           <p><span className="font-semibold text-slate-900">Shift Timing:</span> {student.shiftTiming || "-"}</p>
                           <p><span className="font-semibold text-slate-900">Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
                           {shiftWarning ? <p className="text-rose-600"><span className="font-semibold text-rose-700">Alert:</span> {shiftWarning.text}</p> : null}
-                          <p><span className="font-semibold text-slate-900">Login ID:</span> {student.loginId || "Issued after payment is marked paid"}</p>
+                          <p><span className="font-semibold text-slate-900">Login ID:</span> {student.loginId || "-"}</p>
                           <p><span className="font-semibold text-slate-900">Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
                           <p>
                             <span className="font-semibold text-slate-900">Document Verification:</span>{" "}
                             {documentLabel(student.documentVerificationStatus)}
                           </p>
                           <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
-                          <div className="pt-2">
-                            <Button
-                              onClick={() => downloadStudentPdf(student, liveTimer, shiftWarning)}
-                              type="button"
-                              variant="secondary"
-                            >
-                              Download PDF
-                            </Button>
-                          </div>
                           <div className="pt-2">
                             <Button
                               disabled={updatingVerificationId === student.id || !student.documents.length}
@@ -293,7 +274,7 @@ export function StudentsPage() {
                                     student.id,
                                     student.documentVerificationStatus !== "verified"
                                   );
-                                  await loadStudents(page);
+                                  await loadStudents(page, searchQuery);
                                 } finally {
                                   setUpdatingVerificationId("");
                                 }

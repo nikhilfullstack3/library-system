@@ -300,6 +300,10 @@ export function AuthProvider({ children }) {
     return apiRequest(`/auth/libraries/${session.libraryId}/students${query ? `?${query}` : ""}`);
   }
 
+  async function fetchStudentById(studentId) {
+    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}`);
+  }
+
   async function fetchAttendance(options = {}) {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
@@ -408,6 +412,7 @@ export function AuthProvider({ children }) {
       fetchDocuments,
       fetchChatMessages,
       fetchPayments,
+      fetchStudentById,
       fetchStudents,
       libraryData,
       login,

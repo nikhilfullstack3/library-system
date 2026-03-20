@@ -103,7 +103,7 @@ export function StudentProfilePage() {
                 <CardTitle className="text-lg">Account Details</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <Detail label="Login ID" value={studentData?.student.loginId || "Issued after payment"} />
+                <Detail label="Login ID" value={studentData?.student.loginId || "-"} />
                 <Detail label="Current Password" value={studentData?.student.issuedPassword || "Issued after payment"} />
                 <Detail label="Phone" value={studentData?.student.phone || "-"} />
                 <Detail label="Shift" value={studentData?.student.shift || "-"} />
