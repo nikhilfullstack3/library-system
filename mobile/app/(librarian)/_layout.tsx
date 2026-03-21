@@ -60,6 +60,13 @@ export default function LibrarianLayout() {
         }}
       />
       <Tabs.Screen
+        name="student/[studentId]"
+        options={{
+          href: null,
+          title: "Student Details",
+        }}
+      />
+      <Tabs.Screen
         name="registration"
         options={{
           title: "Registration",

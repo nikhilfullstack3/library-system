@@ -56,8 +56,9 @@ export function AuthProvider({ children }) {
     }
 
     const dashboard = await apiRequest(`/auth/libraries/${session.libraryId}/dashboard`);
-    setLibraryData(dashboard);
-    return dashboard;
+    const result = { ...dashboard, _fetchedAt: Date.now() };
+    setLibraryData(result);
+    return result;
   }, [session?.libraryId]);
 
   const refreshSuperAdminData = useCallback(async (location = "") => {

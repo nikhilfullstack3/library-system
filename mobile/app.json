@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nikhilfullstack3.librarysystemmobile"
     },
     "android": {
+      "package": "com.nikhilfullstack3.librarysystemmobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,14 +41,25 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://192.168.1.21:5001/api"
+      "apiUrl": "https://library-system-api-yq5q.onrender.com/api",
+      "router": {},
+      "eas": {
+        "projectId": "666a49ce-7962-4bbd-b3c5-7469b0428977"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/666a49ce-7962-4bbd-b3c5-7469b0428977"
     }
   }
 }

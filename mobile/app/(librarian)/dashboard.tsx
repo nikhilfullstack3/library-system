@@ -8,8 +8,11 @@ export default function LibrarianDashboardScreen() {
   const { libraryData, logout, refreshLibraryData, session } = useAuth();
 
   useEffect(() => {
-    refreshLibraryData().catch(() => {});
-  }, [refreshLibraryData]);
+    const age = Date.now() - (libraryData?._fetchedAt || 0);
+    if (age > 60_000) {
+      refreshLibraryData().catch(() => {});
+    }
+  }, [libraryData?._fetchedAt, refreshLibraryData]);
 
   const stats = [
     { label: "Total Students", value: String(libraryData?.stats?.totalStudents || 0) },

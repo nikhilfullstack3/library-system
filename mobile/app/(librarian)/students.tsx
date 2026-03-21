@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Card, Heading, Screen } from "../../src/components/ui";
 import { useAuth } from "../../src/context/AuthContext";
 import { colors } from "../../src/theme/colors";
@@ -28,7 +29,7 @@ function getShiftEndDate(student: any) {
 }
 
 function getLiveTimer(student: any) {
-  if (!student.currentlyInLibrary || !student.activeSessionStartedAt) {
+  if (student.fullDay || !student.currentlyInLibrary || !student.activeSessionStartedAt) {
     return null;
   }
 
@@ -67,6 +68,7 @@ function getShiftWarning(student: any) {
 
 export default function LibrarianStudentsScreen() {
   const { fetchStudents } = useAuth();
+  const router = useRouter();
   const [students, setStudents] = useState<any[]>([]);
   const [, setTick] = useState(0);
 
@@ -94,7 +96,11 @@ export default function LibrarianStudentsScreen() {
         const shiftWarning = getShiftWarning(student);
 
         return (
-        <Card key={student.id}>
+        <Pressable
+          key={student.id}
+          onPress={() => router.push(`/(librarian)/student/${student.id}` as never)}
+        >
+        <Card>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{student.name}</Text>
@@ -112,9 +118,10 @@ export default function LibrarianStudentsScreen() {
             {student.currentlyInLibrary ? "Live Timer" : "Shift Timing"}: {liveTimer || student.shiftTiming || student.shift || "-"}
           </Text>
           {shiftWarning ? <Text style={styles.warningText}>{shiftWarning}</Text> : null}
-          <Text style={styles.detail}>Login ID: {student.loginId || "Issued after payment"}</Text>
+          <Text style={styles.detail}>Login ID: {student.loginId || "-"}</Text>
           <Text style={styles.detail}>Password: {student.issuedPassword || "Issued after payment"}</Text>
         </Card>
+        </Pressable>
       )})}
     </Screen>
   );

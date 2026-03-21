@@ -20,6 +20,7 @@ type AuthContextValue = {
   authError: string;
   booting: boolean;
   createStudent: (formData: FormData) => Promise<any>;
+  fetchStudentById: (studentId: string) => Promise<any>;
   fetchStudents: (options?: { page?: number; limit?: number; search?: string }) => Promise<any>;
   fetchSuperAdminLibrary: (libraryId: string) => Promise<any>;
   libraryData: any;
@@ -44,6 +45,7 @@ type AuthContextValue = {
     onMessage?: (payload: any) => void;
   }) => () => void;
   updateChatAccess: (participantType: string, participantId: string, chatEnabled: boolean) => Promise<any>;
+  updateStudent: (studentId: string, formData: FormData) => Promise<any>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -180,8 +182,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const dashboard = await apiRequest(`/auth/libraries/${session.libraryId}/dashboard`);
-    setLibraryData(dashboard);
-    return dashboard;
+    const result = { ...dashboard, _fetchedAt: Date.now() };
+    setLibraryData(result);
+    return result;
   }, [session?.libraryId]);
 
   const refreshSuperAdminData = useCallback(async (location = "") => {
@@ -256,6 +259,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (options.search) params.set("search", String(options.search));
     const query = params.toString();
     return apiRequest(`/auth/libraries/${session?.libraryId}/students${query ? `?${query}` : ""}`);
+  }, [session?.libraryId]);
+
+  const fetchStudentById = useCallback(async (studentId: string) => {
+    return apiRequest(`/auth/libraries/${session?.libraryId}/students/${studentId}`);
+  }, [session?.libraryId]);
+
+  const updateStudent = useCallback(async (studentId: string, formData: FormData) => {
+    return apiRequest(`/auth/libraries/${session?.libraryId}/students/${studentId}`, {
+      method: "PATCH",
+      body: formData,
+    });
   }, [session?.libraryId]);
 
   const fetchSuperAdminLibrary = useCallback(async (libraryId: string) => {
@@ -374,6 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createLibraryAccount,
       createStudent,
       fetchAttendanceQrToken,
+      fetchStudentById,
       fetchStudents,
       fetchSuperAdminLibrary,
       fetchChatMessages,
@@ -392,6 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       superAdminData,
       studentData,
       updateChatAccess,
+      updateStudent,
     }),
     [
       authError,
@@ -400,6 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createLibraryAccount,
       createStudent,
       fetchAttendanceQrToken,
+      fetchStudentById,
       fetchStudents,
       fetchSuperAdminLibrary,
       fetchChatMessages,
@@ -417,6 +434,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       superAdminData,
       studentData,
       updateChatAccess,
+      updateStudent,
     ]
   );
 

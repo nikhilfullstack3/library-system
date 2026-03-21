@@ -1,7 +1,17 @@
 import { Redirect } from "expo-router";
-import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { AppButton, Card, Field, Heading, Screen } from "../src/components/ui";
+import React, { useRef, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { AppButton, Card, Field, Heading } from "../src/components/ui";
 import { useAuth } from "../src/context/AuthContext";
 import { colors } from "../src/theme/colors";
 
@@ -12,9 +22,21 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [slowLogin, setSlowLogin] = useState(false);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!booting && session) {
-    return <Redirect href={session.role === "student" ? "/(student)" : session.role === "super_admin" ? "/super-admin" : "/(librarian)/dashboard"} />;
+    return (
+      <Redirect
+        href={
+          session.role === "student"
+            ? "/(student)"
+            : session.role === "super_admin"
+              ? "/super-admin"
+              : "/(librarian)/dashboard"
+        }
+      />
+    );
   }
 
   async function handleLogin() {
@@ -24,6 +46,9 @@ export default function LoginScreen() {
     }
 
     setSubmitting(true);
+    setSlowLogin(false);
+    slowTimerRef.current = setTimeout(() => setSlowLogin(true), 5000);
+
     try {
       await login(role, email.trim(), password);
     } catch (error: any) {
@@ -31,14 +56,25 @@ export default function LoginScreen() {
       setAuthError(message);
       Alert.alert("Login failed", message);
     } finally {
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       setSubmitting(false);
+      setSlowLogin(false);
     }
   }
 
   return (
-    <Screen scroll>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.wrap}>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Card style={styles.hero}>
             <Heading
               eyebrow="Library Study Room"
@@ -58,9 +94,16 @@ export default function LoginScreen() {
               autoCapitalize="none"
               label={role === "student" ? "Email or Login ID" : "Email"}
               onChangeText={setEmail}
-              placeholder={role === "student" ? "student@library.com" : role === "super_admin" ? "superadmin@library.com" : "admin@library.com"}
+              placeholder={
+                role === "student"
+                  ? "student@library.com"
+                  : role === "super_admin"
+                    ? "superadmin@library.com"
+                    : "admin@library.com"
+              }
               value={email}
             />
+
             <View style={styles.passwordWrap}>
               <Field
                 label="Password"
@@ -69,12 +112,19 @@ export default function LoginScreen() {
                 secureTextEntry={!showPassword}
                 value={password}
               />
-              <Pressable onPress={() => setShowPassword((current) => !current)} style={styles.showPasswordButton}>
+              <Pressable
+                onPress={() => setShowPassword((current) => !current)}
+                style={styles.showPasswordButton}
+              >
                 <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"}</Text>
               </Pressable>
             </View>
 
             {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+
+            {slowLogin ? (
+              <Text style={styles.slowText}>Server is warming up, please wait…</Text>
+            ) : null}
 
             <AppButton label={submitting ? "Signing in..." : "Login"} onPress={handleLogin} />
 
@@ -85,9 +135,9 @@ export default function LoginScreen() {
               <Text style={styles.demoText}>Student: `student@library.com` / `student123`</Text>
             </View>
           </Card>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
@@ -104,9 +154,18 @@ function RoleButton({
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
     gap: 16,
     paddingTop: 28,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
   },
   hero: {
     backgroundColor: "#f6fbf7",
@@ -119,6 +178,7 @@ const styles = StyleSheet.create({
   },
   passwordWrap: {
     position: "relative",
+    marginBottom: 20,
   },
   showPasswordButton: {
     position: "absolute",
@@ -134,9 +194,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.danger,
-    marginTop: 2,
+    marginTop: -12,
     marginBottom: 10,
     fontSize: 13,
+  },
+  slowText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: 10,
+    textAlign: "center",
   },
   demoBlock: {
     marginTop: 14,

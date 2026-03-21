@@ -46,7 +46,7 @@ export default function StudentProfileScreen() {
         <ProfileRow label="Phone" value={student?.phone || "-"} />
         <ProfileRow label="Shift" value={student?.shift || "-"} />
         <ProfileRow label="Shift Timing" value={student?.shiftTiming || "-"} />
-        <ProfileRow label="Login ID" value={student?.loginId || "Issued after payment"} />
+        <ProfileRow label="Login ID" value={student?.loginId || "-"} />
         <ProfileRow label="Current Password" value={student?.issuedPassword || "Issued after payment"} />
       </Card>
 

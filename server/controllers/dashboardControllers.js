@@ -627,9 +627,10 @@ async function buildLibraryDashboard(libraryId) {
   await ensureSeats(libraryId);
   const libraryObjectId = toObjectId(libraryId);
 
-  const [library, seats, totalStudents, currentStudents, paidStudents, pendingPayments, totalHoursResult, todaysAttendance, pendingDocuments, totalAttendanceRecords, totalPayments, totalDocuments, totalLibrarians, revenueResult, recentLibrarians, recentStudents, recentAttendance, recentPayments, recentDocuments] = await Promise.all([
+  const [library, occupiedSeats, emptySeats, totalStudents, currentStudents, paidStudents, pendingPayments, totalHoursResult, todaysAttendance, pendingDocuments, totalAttendanceRecords, totalPayments, totalDocuments, totalLibrarians, revenueResult] = await Promise.all([
     Library.findById(libraryId).lean(),
-    Seat.find({ libraryId }).populate("studentId").sort({ number: 1 }),
+    Seat.countDocuments({ libraryId, status: "occupied" }),
+    Seat.countDocuments({ libraryId, status: "empty" }),
     Student.countDocuments({ libraryId }),
     Student.countDocuments({ libraryId, currentlyInLibrary: true }),
     Student.countDocuments({ libraryId, paymentStatus: "paid" }),
@@ -648,23 +649,14 @@ async function buildLibraryDashboard(libraryId) {
       { $match: { libraryId: libraryObjectId, status: "paid" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
-    Librarian.find({ libraryId }).sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
-    Student.find({ libraryId }).sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
-    Attendance.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
-    Payment.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
-    Document.find({ libraryId }).populate("studentId").sort({ createdAt: -1 }).limit(DASHBOARD_PREVIEW_LIMIT),
   ]);
 
   if (!library) {
     return null;
   }
 
-  const occupiedSeats = seats.filter((seat) => seat.status === "occupied").length;
-  const emptySeats = seats.length - occupiedSeats;
   const totalHours = totalHoursResult[0]?.total || 0;
   const totalRevenue = revenueResult[0]?.total || 0;
-
-  const enrichedRecentStudents = await enrichStudentsWithLiveSessions(libraryId, recentStudents);
 
   return {
     library: {
@@ -693,12 +685,6 @@ async function buildLibraryDashboard(libraryId) {
       totalLibrarians,
       totalRevenue,
     },
-    librarians: recentLibrarians.map(buildLibrarianPayload),
-    students: enrichedRecentStudents.map(buildStudentPayload),
-    seats: seats.map(buildSeatPayload),
-    attendance: recentAttendance.map(buildAttendancePayload),
-    payments: recentPayments.map(buildPaymentPayload),
-    documents: recentDocuments.map(buildDocumentPayload),
   };
 }
 
