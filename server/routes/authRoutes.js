@@ -11,6 +11,7 @@ const {
   getLibraryDashboard,
   getPayments,
   getSeats,
+  assignSeat,
   getSuperAdminDashboard,
   getSuperAdminLibraryView,
   getStudentById,
@@ -26,6 +27,10 @@ const {
   updateChatAccess,
   updateStudentDocumentVerification,
   updateStudent,
+  requestSeatChange,
+  resolveSeatChangeRequest,
+  getAnalytics,
+  seedAnalyticsDemo,
 } = require("../controllers/dashboardControllers");
 const { loginLibrarian, loginStudent, loginSuperAdmin } = require("../controllers/loginControllers");
 const { requireAuth, requireRole, requireStudentSelf } = require("../middleware/auth");
@@ -70,6 +75,7 @@ router.patch(
 router.patch("/libraries/:libraryId/students/:studentId", requireAuth, requireRole("admin", "librarian", "super_admin"), upload.single("document"), updateStudent);
 router.delete("/libraries/:libraryId/students/:studentId", requireAuth, requireRole("admin", "librarian", "super_admin"), deleteStudent);
 router.get("/libraries/:libraryId/seats", requireAuth, requireRole("admin", "librarian", "super_admin"), getSeats);
+router.post("/libraries/:libraryId/seats/:seatId/assign", requireAuth, requireRole("admin", "librarian", "super_admin"), assignSeat);
 router.get("/libraries/:libraryId/attendance", requireAuth, requireRole("admin", "librarian", "super_admin"), getAttendance);
 router.get("/libraries/:libraryId/attendance/qr-token", requireAuth, requireRole("admin", "librarian", "super_admin"), getAttendanceQrToken);
 router.post("/libraries/:libraryId/attendance/mark-present", requireAuth, requireRole("admin", "librarian", "super_admin"), markPresent);
@@ -81,6 +87,10 @@ router.get("/libraries/:libraryId/chat", requireAuth, getChatMessages);
 router.post("/libraries/:libraryId/chat", requireAuth, upload.single("attachment"), postChatMessage);
 router.patch("/libraries/:libraryId/chat/access/:participantType/:participantId", requireAuth, requireRole("admin", "super_admin"), updateChatAccess);
 router.post("/libraries/:libraryId/librarians", requireAuth, requireRole("admin", "super_admin"), registerLibrarian);
+router.post("/libraries/:libraryId/students/:studentId/seat-change-request", requireAuth, requireRole("student"), requestSeatChange);
+router.post("/libraries/:libraryId/seat-change-requests/:requestId/resolve", requireAuth, requireRole("admin", "librarian", "super_admin"), resolveSeatChangeRequest);
+router.get("/libraries/:libraryId/analytics", requireAuth, requireRole("admin", "librarian", "super_admin"), getAnalytics);
+router.post("/libraries/:libraryId/analytics/seed-demo", requireAuth, requireRole("admin", "super_admin"), seedAnalyticsDemo);
 
 router.post("/students/register", requireAuth, requireRole("admin", "librarian", "super_admin"), upload.array("documents", 5), registerStudent);
 router.post("/librarians/register", requireAuth, requireRole("admin", "super_admin"), registerLibrarian);

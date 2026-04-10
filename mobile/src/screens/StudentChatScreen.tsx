@@ -1,10 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
-  BackHandler,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -24,7 +22,6 @@ import { colors } from "../theme/colors";
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
@@ -62,75 +59,15 @@ function resolveAssetUrl(url = "") {
   return `${API_ORIGIN}${url}`;
 }
 
-function getShiftEndDate(student: any) {
-  if (!student?.shiftEndTime || student?.fullDay) {
-    return null;
-  }
-
-  const match = String(student.shiftEndTime).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) {
-    return null;
-  }
-
-  let hours = Number(match[1]) % 12;
-  const minutes = Number(match[2]);
-  if (match[3].toUpperCase() === "PM") {
-    hours += 12;
-  }
-
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date;
-}
-
-function getAttendanceDisplay(student: any) {
-  if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt) {
-    return student?.shiftTiming || student?.shift || "-";
-  }
-
-  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
-  const totalSeconds = Math.floor(elapsedMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
-}
-
-function getShiftWarning(student: any) {
-  if (!student?.currentlyInLibrary) {
-    return null;
-  }
-
-  const shiftEndDate = getShiftEndDate(student);
-  if (!shiftEndDate) {
-    return null;
-  }
-
-  const remainingMs = shiftEndDate.getTime() - Date.now();
-  if (remainingMs <= 0) {
-    return "Your shift has ended. Please check out now.";
-  }
-
-  if (remainingMs > SHIFT_END_WARNING_MS) {
-    return null;
-  }
-
-  const totalSeconds = Math.ceil(remainingMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `Shift ends in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
-}
 
 export function StudentChatScreen() {
-  const { fetchChatMessages, logout, refreshStudentData, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
+  const { fetchChatMessages, refreshStudentData, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<{ uri: string; name: string; mimeType?: string; size?: number } | null>(null);
-  const [, setTimerTick] = useState(0);
   const scrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const loadMessages = useCallback(async () => {
     const nextMessages = await fetchChatMessages();
@@ -165,24 +102,6 @@ export function StudentChatScreen() {
 
     return () => clearTimeout(timeout);
   }, [messages]);
-
-  useEffect(() => {
-    const interval = setInterval(() => setTimerTick((value) => value + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "android") {
-      return undefined;
-    }
-
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      router.replace("/(student)/profile");
-      return true;
-    });
-
-    return () => subscription.remove();
-  }, [router]);
 
   async function handlePickAttachment() {
     try {
@@ -228,10 +147,6 @@ export function StudentChatScreen() {
     }
   }
 
-  const attendanceStatus = studentData?.student?.currentlyInLibrary ? "Checked In" : "Checked Out";
-  const attendanceTimer = getAttendanceDisplay(studentData?.student);
-  const shiftWarning = getShiftWarning(studentData?.student);
-
   return (
     <Screen padded={false}>
       <KeyboardAvoidingView
@@ -239,37 +154,6 @@ export function StudentChatScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
         style={styles.keyboardWrap}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={styles.headerMain}>
-            <Pressable onPress={() => router.replace("/(student)/profile")} style={styles.iconButton}>
-              <Ionicons color="#0f2a1d" name="person-circle-outline" size={26} />
-            </Pressable>
-            <View style={styles.headerCopy}>
-              <Text numberOfLines={1} style={styles.headerTitle}>
-                {studentData?.student?.library?.name || "Library Chat"}
-              </Text>
-              <Text style={styles.headerSubtitle}>{session?.name}</Text>
-            </View>
-          </View>
-          <Pressable onPress={logout} style={styles.iconButton}>
-            <Ionicons color="#0f2a1d" name="log-out-outline" size={22} />
-          </Pressable>
-        </View>
-
-        <View style={[styles.attendanceStrip, shiftWarning ? styles.attendanceStripWarning : null]}>
-          <View>
-            <Text style={[styles.attendanceLabel, shiftWarning ? styles.attendanceLabelWarning : null]}>{attendanceStatus}</Text>
-            <Text style={[styles.attendanceMeta, shiftWarning ? styles.attendanceMetaWarning : null]}>
-              {studentData?.student?.currentlyInLibrary ? `Live timer ${attendanceTimer || "00h 00m 00s"}` : `Shift ${attendanceTimer}`}
-            </Text>
-            {shiftWarning ? <Text style={styles.warningText}>{shiftWarning}</Text> : null}
-          </View>
-          <Pressable onPress={() => router.push("/student-attendance-scan" as never)} style={styles.scanButton}>
-            <Ionicons color="#fff" name="qr-code-outline" size={18} />
-            <Text style={styles.scanButtonText}>Scan QR</Text>
-          </Pressable>
-        </View>
-
         <View style={styles.chatShell}>
           <ScrollView
             contentContainerStyle={[styles.messagesContent, { paddingBottom: 92 + Math.max(insets.bottom, 10) }]}
@@ -365,89 +249,7 @@ export function StudentChatScreen() {
 const styles = StyleSheet.create({
   keyboardWrap: {
     flex: 1,
-    backgroundColor: "#dfece3",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#edf7ef",
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  attendanceStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    backgroundColor: "#e4f3e8",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  attendanceStripWarning: {
-    backgroundColor: "#fee2e2",
-  },
-  attendanceLabel: {
-    color: "#0f2a1d",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  attendanceLabelWarning: {
-    color: "#b91c1c",
-  },
-  attendanceMeta: {
-    color: "#537261",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  attendanceMetaWarning: {
-    color: "#dc2626",
-  },
-  warningText: {
-    color: "#dc2626",
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  scanButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 999,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  scanButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  headerMain: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
-  headerCopy: {
-    flex: 1,
-  },
-  headerTitle: {
-    color: "#0f2a1d",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  headerSubtitle: {
-    color: "#537261",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: colors.background,
   },
   chatShell: {
     flex: 1,

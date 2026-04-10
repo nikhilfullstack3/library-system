@@ -7,6 +7,7 @@ const Library = require("../models/Library");
 const Librarian = require("../models/Librarian");
 const Payment = require("../models/Payment");
 const Seat = require("../models/Seat");
+const SeatChangeRequest = require("../models/SeatChangeRequest");
 const Student = require("../models/Student");
 const SuperAdmin = require("../models/SuperAdmin");
 const { hashPassword } = require("../utils/password");
@@ -281,6 +282,7 @@ function buildAttendancePayload(record) {
     checkIn: formatTime(record.checkIn),
     checkOut: formatTime(record.checkOut),
     date: record.dateKey,
+    isActive: !record.checkOut,
   };
 }
 
@@ -565,13 +567,17 @@ async function getStudentDashboard(studentId) {
     return null;
   }
 
-    const [attendanceHistory, payments, documents, chatMessages] = await Promise.all([
+  const libraryId = student.libraryId._id || student.libraryId;
+
+  const [attendanceHistory, payments, documents, chatMessages, availableSeats, pendingSeatChangeRequest] = await Promise.all([
     Attendance.find({ studentId }).sort({ dateKey: -1, createdAt: -1 }).limit(60),
     Payment.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
     Document.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
-    ChatMessage.find({ libraryId: student.libraryId._id || student.libraryId })
+    ChatMessage.find({ libraryId })
       .sort({ createdAt: -1 })
       .limit(CHAT_MESSAGE_LIMIT),
+    Seat.find({ libraryId, status: "empty" }).sort({ number: 1 }).lean(),
+    SeatChangeRequest.findOne({ studentId, status: "pending" }).populate("requestedSeatId", "number label").lean(),
   ]);
 
   return {
@@ -620,6 +626,17 @@ async function getStudentDashboard(studentId) {
           : "Active",
     })),
     payments: payments.map(buildPaymentPayload),
+    availableSeats: availableSeats.map((s) => ({ id: s._id, number: s.number, label: s.label || `Seat ${s.number}` })),
+    pendingSeatChangeRequest: pendingSeatChangeRequest
+      ? {
+          id: pendingSeatChangeRequest._id,
+          requestedSeatNumber: pendingSeatChangeRequest.requestedSeatNumber,
+          requestedSeatLabel: pendingSeatChangeRequest.requestedSeatId?.label || `Seat ${pendingSeatChangeRequest.requestedSeatNumber}`,
+          reason: pendingSeatChangeRequest.reason,
+          status: pendingSeatChangeRequest.status,
+          createdAt: pendingSeatChangeRequest.createdAt,
+        }
+      : null,
   };
 }
 
@@ -627,7 +644,10 @@ async function buildLibraryDashboard(libraryId) {
   await ensureSeats(libraryId);
   const libraryObjectId = toObjectId(libraryId);
 
-  const [library, occupiedSeats, emptySeats, totalStudents, currentStudents, paidStudents, pendingPayments, totalHoursResult, todaysAttendance, pendingDocuments, totalAttendanceRecords, totalPayments, totalDocuments, totalLibrarians, revenueResult] = await Promise.all([
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [library, occupiedSeats, emptySeats, totalStudents, currentStudents, paidStudents, pendingPayments, totalHoursResult, todaysAttendance, pendingDocuments, totalAttendanceRecords, totalPayments, totalDocuments, totalLibrarians, revenueResult, todaysRevenueResult, recentActivity, seats, pendingSeatChangeRequests, seatChangeRequests] = await Promise.all([
     Library.findById(libraryId).lean(),
     Seat.countDocuments({ libraryId, status: "occupied" }),
     Seat.countDocuments({ libraryId, status: "empty" }),
@@ -649,14 +669,34 @@ async function buildLibraryDashboard(libraryId) {
       { $match: { libraryId: libraryObjectId, status: "paid" } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
+    Payment.aggregate([
+      { $match: { libraryId: libraryObjectId, status: "paid", paidAt: { $gte: todayStart } } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+    Attendance.find({ libraryId, dateKey: toDateKey() })
+      .populate("studentId", "name seatNumber")
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean(),
+    Seat.find({ libraryId }).populate("studentId", "name seatNumber").sort({ number: 1 }).lean(),
+    SeatChangeRequest.countDocuments({ libraryId, status: "pending" }),
+    SeatChangeRequest.find({ libraryId, status: "pending" })
+      .populate("studentId", "name phone seatNumber")
+      .populate("requestedSeatId", "number label")
+      .populate("currentSeatId", "number label")
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean(),
   ]);
 
   if (!library) {
     return null;
   }
 
+  const totalSeats = occupiedSeats + emptySeats;
   const totalHours = totalHoursResult[0]?.total || 0;
   const totalRevenue = revenueResult[0]?.total || 0;
+  const todaysRevenue = todaysRevenueResult[0]?.total || 0;
 
   return {
     library: {
@@ -671,6 +711,7 @@ async function buildLibraryDashboard(libraryId) {
     },
     stats: {
       totalStudents,
+      totalSeats,
       occupiedSeats,
       emptySeats,
       todaysAttendance,
@@ -684,7 +725,27 @@ async function buildLibraryDashboard(libraryId) {
       totalDocuments,
       totalLibrarians,
       totalRevenue,
+      todaysRevenue,
     },
+    recentActivity: recentActivity.map((record) => ({
+      id: record._id,
+      studentName: record.studentId?.name || "Unknown",
+      seatNumber: record.seatNumber,
+      checkIn: formatTime(record.checkIn),
+      checkOut: record.checkOut ? formatTime(record.checkOut) : null,
+      isActive: !record.checkOut,
+    })),
+    seats: seats.map(buildSeatPayload),
+    pendingSeatChangeRequests,
+    seatChangeRequests: seatChangeRequests.map((r) => ({
+      id: r._id,
+      studentName: r.studentId?.name || "Unknown",
+      studentPhone: r.studentId?.phone || "",
+      currentSeatNumber: r.currentSeatNumber,
+      requestedSeatNumber: r.requestedSeatNumber,
+      reason: r.reason,
+      createdAt: r.createdAt,
+    })),
   };
 }
 
@@ -889,6 +950,81 @@ async function seedDemoStudents(libraryId) {
   }
 }
 
+async function seedDemoPayments(libraryId, force = false) {
+  // Only auto-seed on startup if no payments exist yet
+  if (!force) {
+    const existingCount = await Payment.countDocuments({ libraryId });
+    if (existingCount >= 5) {
+      return;
+    }
+  }
+
+  const students = await Student.find({ libraryId }).sort({ createdAt: 1 }).limit(6).lean();
+  if (!students.length) return;
+
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  // Build 9 past months (not including current month — ensureMonthlyPayment handles that)
+  const now = new Date();
+  const pastMonths = [];
+  for (let i = 9; i >= 1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    pastMonths.push({
+      date: d,
+      label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
+    });
+  }
+
+  // Per-student payment profiles: [amount, status] per month (index 0 = oldest)
+  // Profiles for up to 4 students; extras all get "paid"
+  const profiles = [
+    // Aarav – mostly paid, good student
+    [2500, 2500, 3000, 2500, 2500, 3000, 2500, 2500, "pending"],
+    // Riya – inconsistent payer
+    [2000, "pending", 2500, "pending", 2500, 3000, "pending", 2500, "pending"],
+    // Karan – always pays, higher plan
+    [3000, 3000, 3000, 3000, 3500, 3000, 3500, 3000, 3500],
+    // Sneha – started well, now overdue
+    [2000, 2000, 2500, 2500, 2000, "overdue", "overdue", "overdue", "overdue"],
+  ];
+
+  const docs = [];
+
+  students.forEach((student, sIdx) => {
+    const profile = profiles[sIdx] || profiles[0];
+
+    pastMonths.forEach(({ date, label }, mIdx) => {
+      const raw = profile[mIdx % profile.length];
+      const amount = typeof raw === "number" ? raw : 2500;
+      const status = typeof raw === "string" ? raw : "paid";
+
+      // Spread paidAt across the month (5th–10th day)
+      const paidAt = status === "paid"
+        ? new Date(date.getFullYear(), date.getMonth(), 5 + (sIdx * 2))
+        : null;
+
+      // createdAt = 1st of that month
+      const createdAt = new Date(date.getFullYear(), date.getMonth(), 1);
+
+      docs.push({
+        libraryId: student.libraryId,
+        studentId: student._id,
+        seatNumber: student.seatNumber,
+        month: label,
+        amount,
+        status,
+        paidAt,
+        createdAt,
+        updatedAt: paidAt || createdAt,
+      });
+    });
+  });
+
+  if (docs.length) {
+    await Payment.collection.insertMany(docs, { ordered: false });
+  }
+}
+
 async function repairLegacyLibraryData(libraryId) {
   await ensureSeats(libraryId);
   const students = await Student.find({ libraryId }).sort({ createdAt: 1 });
@@ -987,6 +1123,7 @@ async function createDefaultLibrary() {
     }
     await ensureSeats(existingLibrary._id);
     await seedDemoStudents(existingLibrary._id);
+    await seedDemoPayments(existingLibrary._id);
     await repairLegacyLibraryData(existingLibrary._id);
     const adminPassword = await hashPassword("admin123");
     const staffPassword = await hashPassword("librarian123");
@@ -1338,7 +1475,7 @@ exports.getStudentById = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const [enrichedStudent, documents] = await Promise.all([
+    const [enrichedStudent, documents, attendanceHistory] = await Promise.all([
       enrichStudentsWithDocumentStatus([student]).then((items) => items[0]),
       Document.find({
         studentId: req.params.studentId,
@@ -1346,11 +1483,27 @@ exports.getStudentById = async (req, res) => {
       })
         .populate("studentId")
         .sort({ createdAt: -1 }),
+      Attendance.find({
+        studentId: req.params.studentId,
+        libraryId: req.params.libraryId,
+      })
+        .sort({ dateKey: -1, createdAt: -1 })
+        .limit(60),
     ]);
 
     return res.json({
       ...buildStudentPayload(enrichedStudent),
       uploadedDocuments: documents.map(buildDocumentPayload),
+      attendanceHistory: attendanceHistory.map((item) => ({
+        id: item._id,
+        date: item.dateKey,
+        checkIn: formatTime(item.checkIn),
+        checkOut: formatTime(item.checkOut),
+        hours:
+          item.checkOut && item.checkIn
+            ? `${Math.max(0, Math.round((item.checkOut - item.checkIn) / (1000 * 60)))} mins`
+            : "Active",
+      })),
     });
   } catch (error) {
     return res.status(500).json({
@@ -1658,6 +1811,68 @@ exports.getSeats = async (req, res) => {
   }
 };
 
+exports.assignSeat = async (req, res) => {
+  try {
+    const { libraryId, seatId } = req.params;
+    const { phone } = req.body || {};
+
+    const seat = await Seat.findOne({ _id: seatId, libraryId });
+    if (!seat) {
+      return res.status(404).json({ message: "Seat not found" });
+    }
+
+    // Unassign mode: empty phone means clear the seat
+    if (!phone || !String(phone).trim()) {
+      if (seat.studentId) {
+        // Reset the student's seatNumber so they no longer reference this seat
+        await Student.updateOne(
+          { _id: seat.studentId, libraryId },
+          { $set: { seatNumber: "" } }
+        );
+      }
+      seat.studentId = null;
+      seat.status = "empty";
+      await seat.save();
+      return res.json({ message: "Seat cleared", seat: buildSeatPayload(seat) });
+    }
+
+    const cleanPhone = String(phone).trim();
+    const student = await Student.findOne({ libraryId, phone: cleanPhone });
+    if (!student) {
+      return res.status(404).json({ message: "No student found with that phone number" });
+    }
+
+    // If this student already had another seat, free that seat first
+    await Seat.updateMany(
+      { libraryId, studentId: student._id, _id: { $ne: seat._id } },
+      { $set: { studentId: null, status: "empty" } }
+    );
+
+    // If this seat had another student, clear their seatNumber
+    if (seat.studentId && String(seat.studentId) !== String(student._id)) {
+      await Student.updateOne(
+        { _id: seat.studentId, libraryId },
+        { $set: { seatNumber: "" } }
+      );
+    }
+
+    seat.studentId = student._id;
+    seat.status = "occupied";
+    await seat.save();
+
+    student.seatNumber = String(seat.number);
+    await student.save();
+
+    const populated = await Seat.findById(seat._id).populate("studentId", "name seatNumber");
+    return res.json({ message: "Seat assigned", seat: buildSeatPayload(populated) });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Unable to assign seat",
+      error: error.message,
+    });
+  }
+};
+
 exports.getAttendance = async (req, res) => {
   try {
     const { page, limit, skip } = getPageOptions(req.query, 50);
@@ -1907,5 +2122,279 @@ exports.getStudentDashboardHandler = async (req, res) => {
       message: "Unable to load student dashboard",
       error: error.message,
     });
+  }
+};
+
+// Student submits a seat change request
+exports.requestSeatChange = async (req, res) => {
+  try {
+    const { libraryId, studentId } = req.params;
+    const { seatNumber, reason } = req.body || {};
+
+    if (!seatNumber && seatNumber !== 0) {
+      return res.status(400).json({ message: "Seat number is required" });
+    }
+
+    const student = await Student.findOne({ _id: studentId, libraryId });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const requestedSeat = await Seat.findOne({ libraryId, number: Number(seatNumber) });
+    if (!requestedSeat) {
+      return res.status(400).json({ message: "Seat not found. Please enter a valid seat number." });
+    }
+
+    if (requestedSeat.status === "occupied") {
+      return res.status(400).json({ message: `Seat ${requestedSeat.number} is already occupied. Please choose a different seat.` });
+    }
+
+    // Cancel any existing pending request from this student
+    await SeatChangeRequest.deleteMany({ studentId, libraryId, status: "pending" });
+
+    // Find student's current seat
+    let currentSeatId = null;
+    if (student.seatNumber) {
+      const currentSeat = await Seat.findOne({ libraryId, number: student.seatNumber }).lean();
+      currentSeatId = currentSeat?._id || null;
+    }
+
+    const request = await SeatChangeRequest.create({
+      libraryId,
+      studentId,
+      currentSeatId,
+      currentSeatNumber: student.seatNumber || "",
+      requestedSeatId: requestedSeat._id,
+      requestedSeatNumber: String(requestedSeat.number),
+      reason: String(reason || "").trim(),
+      status: "pending",
+    });
+
+    // Notify librarian in real-time
+    const eventPayload = {
+      requestId: request._id,
+      studentName: student.name,
+      studentPhone: student.phone,
+      currentSeatNumber: student.seatNumber || "",
+      requestedSeatNumber: String(requestedSeat.number),
+      reason: String(reason || "").trim(),
+      createdAt: request.createdAt,
+    };
+    console.log("[seat:change-request] emitting to library:", libraryId, eventPayload);
+    emitLibraryEvent(libraryId, "seat:change-request", eventPayload);
+
+    return res.json({ message: "Seat change request submitted", requestId: request._id });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to submit request", error: error.message });
+  }
+};
+
+// Librarian resolves (approve or reject) a seat change request
+exports.resolveSeatChangeRequest = async (req, res) => {
+  try {
+    const { libraryId, requestId } = req.params;
+    const { action } = req.body || {}; // "approve" or "reject"
+
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({ message: "Action must be approve or reject" });
+    }
+
+    const request = await SeatChangeRequest.findOne({ _id: requestId, libraryId, status: "pending" })
+      .populate("studentId", "name phone seatNumber")
+      .populate("requestedSeatId", "number label status");
+
+    if (!request) {
+      return res.status(404).json({ message: "Pending request not found" });
+    }
+
+    if (action === "reject") {
+      request.status = "rejected";
+      request.resolvedAt = new Date();
+      request.resolvedBy = req.auth?.librarianId || null;
+      await request.save();
+
+      emitLibraryEvent(libraryId, "seat:change-resolved", {
+        requestId: request._id,
+        studentId: request.studentId._id,
+        action: "rejected",
+      });
+
+      return res.json({ message: "Request rejected" });
+    }
+
+    // Approve: run the same logic as assignSeat
+    const seat = request.requestedSeatId;
+    if (!seat) {
+      return res.status(404).json({ message: "Requested seat no longer exists" });
+    }
+
+    if (seat.status === "occupied") {
+      return res.status(400).json({ message: "Requested seat is now occupied — cannot approve" });
+    }
+
+    const student = request.studentId;
+
+    // Free any other seats the student occupies
+    await Seat.updateMany(
+      { libraryId, studentId: student._id, _id: { $ne: seat._id } },
+      { $set: { studentId: null, status: "empty" } }
+    );
+
+    seat.studentId = student._id;
+    seat.status = "occupied";
+    await seat.save();
+
+    await Student.updateOne({ _id: student._id }, { $set: { seatNumber: String(seat.number) } });
+
+    request.status = "approved";
+    request.resolvedAt = new Date();
+    request.resolvedBy = req.auth?.librarianId || null;
+    await request.save();
+
+    emitLibraryEvent(libraryId, "seat:change-resolved", {
+      requestId: request._id,
+      studentId: student._id,
+      action: "approved",
+      newSeatNumber: String(seat.number),
+    });
+
+    return res.json({ message: "Seat change approved", newSeatNumber: String(seat.number) });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to resolve request", error: error.message });
+  }
+};
+
+exports.getAnalytics = async (req, res) => {
+  try {
+    const libraryId = req.params.libraryId;
+    const libraryObjectId = toObjectId(libraryId);
+    const period = req.query.period || "6m";
+
+    const now = new Date();
+    let startDate;
+    if (period === "1w") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (period === "1m") {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 1);
+    } else if (period === "3m") {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 3);
+    } else if (period === "6m") {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 6);
+    } else {
+      startDate = new Date(now);
+      startDate.setFullYear(startDate.getFullYear() - 1);
+    }
+    startDate.setHours(0, 0, 0, 0);
+
+    const baseMatch = { libraryId: libraryObjectId, createdAt: { $gte: startDate } };
+
+    const [
+      monthlyRevenue,
+      statusBreakdown,
+      totalStudents,
+      recentRenewals,
+    ] = await Promise.all([
+      Payment.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+            },
+            collected: {
+              $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$amount", 0] },
+            },
+            pending: {
+              $sum: { $cond: [{ $ne: ["$status", "paid"] }, "$amount", 0] },
+            },
+            paidCount: {
+              $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] },
+            },
+            totalCount: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      Payment.aggregate([
+        { $match: { libraryId: libraryObjectId } },
+        {
+          $group: {
+            _id: "$status",
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      Student.countDocuments({ libraryId }),
+      Payment.find({ libraryId, status: "paid", paidAt: { $ne: null } })
+        .populate("studentId", "name seatNumber")
+        .sort({ paidAt: -1 })
+        .limit(20)
+        .lean(),
+    ]);
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthly = monthlyRevenue.map((item) => ({
+      label: `${monthNames[item._id.month - 1]} ${item._id.year}`,
+      year: item._id.year,
+      month: item._id.month,
+      collected: item.collected,
+      pending: item.pending,
+      paidCount: item.paidCount,
+      totalCount: item.totalCount,
+    }));
+
+    const statusMap = {};
+    for (const item of statusBreakdown) {
+      statusMap[item._id] = { total: item.total, count: item.count };
+    }
+
+    const totalCollected = statusMap.paid?.total || 0;
+    const totalPending = (statusMap.pending?.total || 0) + (statusMap.overdue?.total || 0);
+    const totalPaymentCount = (statusMap.paid?.count || 0) + (statusMap.pending?.count || 0) + (statusMap.overdue?.count || 0);
+
+    const renewals = recentRenewals.map((p) => ({
+      id: p._id,
+      studentName: p.studentId?.name || "Unknown",
+      seatNumber: p.studentId?.seatNumber || "—",
+      month: p.month,
+      amount: p.amount,
+      paidAt: p.paidAt,
+    }));
+
+    return res.json({
+      period,
+      summary: {
+        totalCollected,
+        totalPending,
+        totalRevenue: totalCollected + totalPending,
+        collectionRate: totalPaymentCount > 0 ? Math.round((statusMap.paid?.count || 0) / totalPaymentCount * 100) : 0,
+        avgPerStudent: totalStudents > 0 ? Math.round(totalCollected / totalStudents) : 0,
+        paidCount: statusMap.paid?.count || 0,
+        pendingCount: (statusMap.pending?.count || 0) + (statusMap.overdue?.count || 0),
+        overdueCount: statusMap.overdue?.count || 0,
+      },
+      monthly,
+      renewals,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to load analytics", error: error.message });
+  }
+};
+
+exports.seedAnalyticsDemo = async (req, res) => {
+  try {
+    const { libraryId } = req.params;
+    // Delete all non-current-month payments, then force-insert historical demo data
+    await Payment.deleteMany({ libraryId, month: { $ne: formatMonth() } });
+    await seedDemoPayments(libraryId, true);
+    return res.json({ message: "Demo payment history seeded" });
+  } catch (error) {
+    return res.status(500).json({ message: "Seed failed", error: error.message });
   }
 };

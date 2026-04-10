@@ -29,7 +29,7 @@ export default function StudentAttendanceScanScreen() {
       Alert.alert("Attendance updated", response.message, [
         {
           text: "OK",
-          onPress: () => router.replace("/student-chat"),
+          onPress: () => router.replace("/(student)"),
         },
       ]);
     } catch (error: any) {
@@ -67,7 +67,7 @@ export default function StudentAttendanceScanScreen() {
       />
       <View style={styles.overlay}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.replace("/student-chat")} style={styles.backButton}>
+          <Pressable onPress={() => router.replace("/(student)")} style={styles.backButton}>
             <Text style={styles.backText}>Back</Text>
           </Pressable>
           <Text style={styles.title}>Scan library QR</Text>

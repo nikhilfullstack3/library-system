@@ -1,5 +1,5 @@
 import { ArrowLeft, CircleAlert, Download, IdCard, Mail, Phone, Upload, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams, useParams } from "react-router-dom";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -18,6 +18,7 @@ export function StudentDetailPage() {
   const { studentId } = useParams();
   const [searchParams] = useSearchParams();
   const { fetchStudentById, updateStudent } = useAuth();
+  const attendanceHistoryRef = useRef(null);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,6 +26,7 @@ export function StudentDetailPage() {
   const [documentFile, setDocumentFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const backTarget = searchParams.get("from") || "/librarian/students";
+  const focusSection = searchParams.get("focus");
 
   useEffect(() => {
     let active = true;
@@ -55,6 +57,17 @@ export function StudentDetailPage() {
       active = false;
     };
   }, [fetchStudentById, studentId]);
+
+  useEffect(() => {
+    if (loading || focusSection !== "attendance" || !attendanceHistoryRef.current) {
+      return;
+    }
+
+    attendanceHistoryRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [focusSection, loading, student]);
 
   async function handleDocumentUpload(event) {
     event.preventDefault();
@@ -138,6 +151,36 @@ export function StudentDetailPage() {
               {student.documentVerificationStatus || "not uploaded"}
             </Badge>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-3xl" id="attendance-history" ref={attendanceHistoryRef}>
+        <CardHeader>
+          <CardTitle>Attendance History</CardTitle>
+          <p className="text-sm text-slate-500">Daily presence, check-in and check-out times, and session duration.</p>
+        </CardHeader>
+        <CardContent>
+          {student.attendanceHistory?.length ? (
+            <div className="space-y-3">
+              {student.attendanceHistory.map((entry) => (
+                <div key={entry.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{entry.date}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Check in: {entry.checkIn || "-"} • Check out: {entry.checkOut || "Still inside"}
+                      </p>
+                    </div>
+                    <Badge variant={entry.hours === "Active" ? "success" : "secondary"}>{entry.hours}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              No attendance history found for this student yet.
+            </div>
+          )}
         </CardContent>
       </Card>
 

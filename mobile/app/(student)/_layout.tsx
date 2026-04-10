@@ -10,17 +10,9 @@ export default function StudentLayout() {
   const { booting, logout, session } = useAuth();
   const insets = useSafeAreaInsets();
 
-  if (booting) {
-    return null;
-  }
-
-  if (!session) {
-    return <Redirect href="/login" />;
-  }
-
-  if (session.role !== "student") {
-    return <Redirect href="/(librarian)/dashboard" />;
-  }
+  if (booting) return null;
+  if (!session) return <Redirect href="/login" />;
+  if (session.role !== "student") return <Redirect href="/(librarian)/dashboard" />;
 
   return (
     <Tabs
@@ -47,6 +39,13 @@ export default function StudentLayout() {
     >
       <Tabs.Screen
         name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="home-outline" size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
         options={{
           title: "Chat",
           tabBarIcon: ({ color, size }) => <Ionicons color={color} name="chatbubble-ellipses-outline" size={size} />,

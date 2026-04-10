@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 const LoginPage = lazy(() => import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const AttendancePage = lazy(() => import("./pages/librarian/AttendancePage").then((module) => ({ default: module.AttendancePage })));
 const DashboardPage = lazy(() => import("./pages/librarian/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const AnalyticsPage = lazy(() => import("./pages/librarian/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 const DocumentsPage = lazy(() => import("./pages/librarian/DocumentsPage").then((module) => ({ default: module.DocumentsPage })));
 const RegistrationPage = lazy(() => import("./pages/librarian/RegistrationPage").then((module) => ({ default: module.RegistrationPage })));
 const SeatsPage = lazy(() => import("./pages/librarian/SeatsPage").then((module) => ({ default: module.SeatsPage })));
@@ -49,6 +50,7 @@ function AppRoutes() {
           path="/librarian"
         >
           <Route element={<DashboardPage />} index />
+          <Route element={<AnalyticsPage />} path="analytics" />
           <Route element={<StudentsPage />} path="students" />
           <Route element={<StudentDetailPage />} path="students/:studentId" />
           <Route element={<RegistrationPage />} path="registration" />

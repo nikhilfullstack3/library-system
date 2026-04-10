@@ -16,7 +16,7 @@ function loadStoredState() {
   }
 
   try {
-    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY)) || {
+    const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY)) || {
       libraryData: null,
       session: null,
       studentData: null,
@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         session,
@@ -270,6 +270,15 @@ export function AuthProvider({ children }) {
     return data;
   }
 
+  async function assignSeat(seatId, phone) {
+    const data = await apiRequest(`/auth/libraries/${session.libraryId}/seats/${seatId}/assign`, {
+      method: "POST",
+      body: { phone },
+    });
+    await refreshLibraryData();
+    return data;
+  }
+
   async function markPaymentPaid(paymentId) {
     return apiRequest(`/auth/libraries/${session.libraryId}/payments/${paymentId}/mark-paid`, {
       method: "POST",
@@ -323,6 +332,14 @@ export function AuthProvider({ children }) {
     return apiRequest(`/auth/libraries/${session.libraryId}/payments${query ? `?${query}` : ""}`);
   }
 
+  async function fetchAnalytics(period = "6m") {
+    return apiRequest(`/auth/libraries/${session.libraryId}/analytics?period=${encodeURIComponent(period)}`);
+  }
+
+  async function seedAnalyticsDemo() {
+    return apiRequest(`/auth/libraries/${session.libraryId}/analytics/seed-demo`, { method: "POST" });
+  }
+
   async function fetchDocuments(options = {}) {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
@@ -356,6 +373,22 @@ export function AuthProvider({ children }) {
     );
   }
 
+  async function requestSeatChange(seatNumber, reason) {
+    return apiRequest(
+      `/auth/libraries/${session.libraryId}/students/${session.studentId}/seat-change-request`,
+      { method: "POST", body: { seatNumber, reason } }
+    );
+  }
+
+  async function resolveSeatChangeRequest(requestId, action) {
+    const data = await apiRequest(
+      `/auth/libraries/${session.libraryId}/seat-change-requests/${requestId}/resolve`,
+      { method: "POST", body: { action } }
+    );
+    await refreshLibraryData();
+    return data;
+  }
+
   function subscribeToLibraryEvents(handlers = {}) {
     if (!session?.libraryId) {
       return () => {};
@@ -372,13 +405,19 @@ export function AuthProvider({ children }) {
 
     const messageHandler = (payload) => handlers.onMessage?.(payload);
     const accessHandler = (payload) => handlers.onAccessUpdate?.(payload);
+    const seatRequestHandler = (payload) => handlers.onSeatChangeRequest?.(payload);
+    const seatResolvedHandler = (payload) => handlers.onSeatChangeResolved?.(payload);
 
     socket.on("chat:message", messageHandler);
     socket.on("chat:access-updated", accessHandler);
+    socket.on("seat:change-request", seatRequestHandler);
+    socket.on("seat:change-resolved", seatResolvedHandler);
 
     return () => {
       socket.off("chat:message", messageHandler);
       socket.off("chat:access-updated", accessHandler);
+      socket.off("seat:change-request", seatRequestHandler);
+      socket.off("seat:change-resolved", seatResolvedHandler);
       socket.emit("library:leave", session.libraryId);
     };
   }
@@ -396,18 +435,23 @@ export function AuthProvider({ children }) {
     setAuthError("");
     setAuthToken("");
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.sessionStorage.removeItem(STORAGE_KEY);
     }
   }
 
   const value = useMemo(
     () => ({
+      assignSeat,
       authError,
       changeStudentPassword,
+      requestSeatChange,
+      resolveSeatChangeRequest,
       createLibraryAccount,
       createLibrarian,
       createStudent,
       deleteStudent,
+      fetchAnalytics,
+      seedAnalyticsDemo,
       fetchAttendance,
       fetchAttendanceQrToken,
       fetchDocuments,

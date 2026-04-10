@@ -20,6 +20,7 @@ type AuthContextValue = {
   authError: string;
   booting: boolean;
   createStudent: (formData: FormData) => Promise<any>;
+  fetchAnalytics: (period?: string) => Promise<any>;
   fetchStudentById: (studentId: string) => Promise<any>;
   fetchStudents: (options?: { page?: number; limit?: number; search?: string }) => Promise<any>;
   fetchSuperAdminLibrary: (libraryId: string) => Promise<any>;
@@ -39,11 +40,16 @@ type AuthContextValue = {
   fetchChatMessages: () => Promise<any[]>;
   fetchAttendanceQrToken: () => Promise<any>;
   sendChatMessage: (payload: { message: string; tag?: string; attachment?: { uri: string; name: string; mimeType?: string } | null }) => Promise<any>;
+  requestSeatChange: (seatNumber: string, reason: string) => Promise<any>;
+  resolveSeatChangeRequest: (requestId: string, action: string) => Promise<any>;
   scanAttendanceQr: (token: string) => Promise<any>;
   subscribeToLibraryEvents: (handlers?: {
     onAccessUpdate?: (payload: any) => void;
     onMessage?: (payload: any) => void;
+    onSeatChangeRequest?: (payload: any) => void;
+    onSeatChangeResolved?: (payload: any) => void;
   }) => () => void;
+  seedAnalyticsDemo: () => Promise<any>;
   updateChatAccess: (participantType: string, participantId: string, chatEnabled: boolean) => Promise<any>;
   updateStudent: (studentId: string, formData: FormData) => Promise<any>;
 };
@@ -276,6 +282,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return apiRequest(`/auth/super-admin/libraries/${libraryId}`);
   }, []);
 
+  const fetchAnalytics = useCallback(async (period = "6m") => {
+    return apiRequest(`/auth/libraries/${session?.libraryId}/analytics?period=${encodeURIComponent(period)}`);
+  }, [session?.libraryId]);
+
+  const seedAnalyticsDemo = useCallback(async () => {
+    return apiRequest(`/auth/libraries/${session?.libraryId}/analytics/seed-demo`, { method: "POST" });
+  }, [session?.libraryId]);
+
   const fetchAttendanceQrToken = useCallback(async () => {
     return apiRequest(`/auth/libraries/${session?.libraryId}/attendance/qr-token`);
   }, [session?.libraryId]);
@@ -317,9 +331,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data;
   }, [session?.libraryId]);
 
+  const requestSeatChange = useCallback(async (seatNumber: string, reason: string) => {
+    const data = await apiRequest(`/auth/libraries/${session?.libraryId}/students/${session?.studentId}/seat-change-request`, {
+      method: "POST",
+      body: { seatNumber, reason },
+    });
+    return data;
+  }, [session?.libraryId, session?.studentId]);
+
+  const resolveSeatChangeRequest = useCallback(async (requestId: string, action: string) => {
+    const data = await apiRequest(`/auth/libraries/${session?.libraryId}/seat-change-requests/${requestId}/resolve`, {
+      method: "POST",
+      body: { action },
+    });
+    await refreshLibraryData();
+    return data;
+  }, [session?.libraryId, refreshLibraryData]);
+
   const subscribeToLibraryEvents = useCallback((handlers: {
     onAccessUpdate?: (payload: any) => void;
     onMessage?: (payload: any) => void;
+    onSeatChangeRequest?: (payload: any) => void;
+    onSeatChangeResolved?: (payload: any) => void;
   } = {}) => {
     if (!session?.libraryId) {
       return () => {};
@@ -336,13 +369,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const messageHandler = (payload: any) => handlers.onMessage?.(payload);
     const accessHandler = (payload: any) => handlers.onAccessUpdate?.(payload);
+    const seatRequestHandler = (payload: any) => handlers.onSeatChangeRequest?.(payload);
+    const seatChangeResolvedHandler = (payload: any) => handlers.onSeatChangeResolved?.(payload);
 
     socket.on("chat:message", messageHandler);
     socket.on("chat:access-updated", accessHandler);
+    socket.on("seat:change-request", seatRequestHandler);
+    socket.on("seat:change-resolved", seatChangeResolvedHandler);
 
     return () => {
       socket.off("chat:message", messageHandler);
       socket.off("chat:access-updated", accessHandler);
+      socket.off("seat:change-request", seatRequestHandler);
+      socket.off("seat:change-resolved", seatChangeResolvedHandler);
       socket.emit("library:leave", session.libraryId);
     };
   }, [session?.libraryId]);
@@ -387,6 +426,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       changeStudentPassword,
       createLibraryAccount,
       createStudent,
+      fetchAnalytics,
       fetchAttendanceQrToken,
       fetchStudentById,
       fetchStudents,
@@ -399,6 +439,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshLibraryData,
       refreshSuperAdminData,
       refreshStudentData,
+      requestSeatChange,
+      resolveSeatChangeRequest,
       session,
       setAuthError,
       sendChatMessage,
@@ -406,6 +448,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscribeToLibraryEvents,
       superAdminData,
       studentData,
+      seedAnalyticsDemo,
       updateChatAccess,
       updateStudent,
     }),
@@ -415,6 +458,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       changeStudentPassword,
       createLibraryAccount,
       createStudent,
+      fetchAnalytics,
       fetchAttendanceQrToken,
       fetchStudentById,
       fetchStudents,
@@ -427,12 +471,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshLibraryData,
       refreshSuperAdminData,
       refreshStudentData,
+      requestSeatChange,
       session,
       sendChatMessage,
       scanAttendanceQr,
       subscribeToLibraryEvents,
       superAdminData,
       studentData,
+      seedAnalyticsDemo,
       updateChatAccess,
       updateStudent,
     ]

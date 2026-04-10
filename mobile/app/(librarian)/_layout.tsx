@@ -53,6 +53,13 @@ export default function LibrarianLayout() {
         }}
       />
       <Tabs.Screen
+        name="analytics"
+        options={{
+          title: "Analytics",
+          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="stats-chart-outline" size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="students"
         options={{
           title: "Students",

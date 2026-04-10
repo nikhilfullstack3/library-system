@@ -1,6 +1,6 @@
 import React from "react";
-import { StudentChatScreen } from "../../src/screens/StudentChatScreen";
+import { StudentHomeScreen } from "../../src/screens/StudentHomeScreen";
 
-export default function StudentChatTab() {
-  return <StudentChatScreen />;
+export default function StudentHomeTab() {
+  return <StudentHomeScreen />;
 }

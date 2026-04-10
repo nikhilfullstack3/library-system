@@ -50,6 +50,7 @@ io.on("connection", (socket) => {
     }
 
     socket.join(`library:${libraryId}`);
+    console.log(`[socket] ${socket.id} joined library:${libraryId}`);
   });
 
   socket.on("library:leave", (libraryId) => {
