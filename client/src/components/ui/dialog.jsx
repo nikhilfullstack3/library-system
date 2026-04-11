@@ -25,7 +25,7 @@ export function DialogContent({ className, children, ...props }) {
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl p-6 shadow-xl duration-200",
+          "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl p-5 sm:p-6 shadow-xl duration-200",
           isMidnightJelly ? "border border-white/10 bg-[#120f23] text-violet-50" : "border border-slate-200 bg-white",
           className
         )}

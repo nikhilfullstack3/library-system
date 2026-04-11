@@ -153,6 +153,77 @@ export function StudentsPage() {
               : `${endingSoonStudents.length} students have shifts ending within 30 minutes.`}
           </div>
         ) : null}
+        {/* Mobile card list — shown on small screens */}
+        <div className="sm:hidden space-y-3">
+          {students.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">{searchQuery ? "No students found for this search." : "No students available yet."}</p>
+          ) : null}
+          {students.map((student) => {
+            const liveTimer = getLiveTimer(student);
+            const shiftWarning = getShiftWarning(student);
+            return (
+              <div key={student.id} className={`rounded-2xl border p-4 ${shiftWarning ? (isMidnightJelly ? "border-rose-300/20 bg-rose-400/8" : "border-rose-200 bg-rose-50/60") : (isMidnightJelly ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50")}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    className={`text-base font-semibold underline-offset-4 hover:underline text-left ${isMidnightJelly ? "text-cyan-200" : "text-sky-700"}`}
+                    onClick={() => navigate(`/librarian/students/${student.id}?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`)}
+                    type="button"
+                  >
+                    {student.name}
+                  </button>
+                  <Badge variant={documentVariant(student.documentVerificationStatus)}>{documentLabel(student.documentVerificationStatus)}</Badge>
+                </div>
+                <div className={`mt-2 space-y-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
+                  <p>Seat <span className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{student.seatNumber}</span> · {student.phone}</p>
+                  <p className={shiftWarning ? (isMidnightJelly ? "font-semibold text-rose-200" : "font-semibold text-rose-600") : ""}>
+                    {liveTimer || student.shiftTiming || student.shift || "-"}
+                  </p>
+                  {shiftWarning ? <p className={`text-xs ${isMidnightJelly ? "text-rose-200" : "text-rose-500"}`}>{shiftWarning.text}</p> : null}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <AddStudentDialog
+                    initialValues={{ name: student.name, email: student.email, phone: student.phone, address: student.address, seatNumber: student.seatNumber, shift: student.shift, shiftTiming: student.shiftTiming, paymentStatus: student.paymentStatus, hoursSpent: String(student.hoursSpent || 0) }}
+                    onSubmit={async (formData) => { await updateStudent(student.id, formData); await loadStudents(page, searchQuery); }}
+                    submitLabel="Update Student" title="Edit Student"
+                    trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>}
+                  />
+                  <Button size="icon" variant="ghost" onClick={async () => { await deleteStudent(student.id); await loadStudents(page, searchQuery); }}>
+                    <Trash2 className="h-4 w-4 text-rose-600" />
+                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="icon" variant="ghost"><Eye className="h-4 w-4 text-sky-600" /></Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>{student.name}</DialogTitle><DialogDescription>Student profile and seat assignment details.</DialogDescription></DialogHeader>
+                      <div className={`grid gap-3 rounded-2xl p-4 text-sm ${isMidnightJelly ? "bg-white/5 text-violet-100/85" : "bg-slate-50 text-slate-700"}`}>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Seat:</span> {student.seatNumber}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Phone:</span> {student.phone}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Address:</span> {student.address}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift:</span> {student.shift}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift Timing:</span> {student.shiftTiming || "-"}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
+                        {shiftWarning ? <p className={isMidnightJelly ? "text-rose-200" : "text-rose-600"}><span className={`font-semibold ${isMidnightJelly ? "text-rose-100" : "text-rose-700"}`}>Alert:</span> {shiftWarning.text}</p> : null}
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Login ID:</span> {student.loginId || "-"}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Document Verification:</span> {documentLabel(student.documentVerificationStatus)}</p>
+                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Documents:</span> {student.documents.join(", ") || "None"}</p>
+                        <div className="pt-2">
+                          <Button disabled={updatingVerificationId === student.id || !student.documents.length} onClick={async () => { setUpdatingVerificationId(student.id); try { await updateStudentDocumentVerification(student.id, student.documentVerificationStatus !== "verified"); await loadStudents(page, searchQuery); } finally { setUpdatingVerificationId(""); } }} type="button" variant={student.documentVerificationStatus === "verified" ? "outline" : "default"}>
+                            {updatingVerificationId === student.id ? "Updating..." : student.documentVerificationStatus === "verified" ? "Mark As Not Verified" : "Mark As Verified"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop table — hidden on small screens */}
+        <div className="hidden sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -300,6 +371,7 @@ export function StudentsPage() {
             )})}
           </TableBody>
         </Table>
+        </div>
         <div className={`mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {pagination?.page || 1} of {pagination?.totalPages || 1}

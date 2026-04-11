@@ -63,7 +63,7 @@ export function AttendancePage() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
+    <div className="grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
       <Card className="rounded-3xl">
         <CardHeader>
           <div>
@@ -147,6 +147,29 @@ export function AttendancePage() {
             </Button>
           ))}
         </div>
+        {/* Mobile cards */}
+        <div className="sm:hidden space-y-3">
+          {attendanceResponse.items.map((item) => (
+            <div key={item.id} className={`rounded-2xl border p-4 ${isMidnightJelly ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50"}`}>
+              <div className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
+                {item.studentId ? (
+                  <button className={`underline-offset-4 hover:underline text-left ${isMidnightJelly ? "text-cyan-200" : "text-sky-700"}`} onClick={() => openStudent(item.studentId)} type="button">
+                    {item.student}
+                  </button>
+                ) : item.student}
+              </div>
+              <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
+                Seat {item.seat} · {item.date}
+              </p>
+              <p className={`text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
+                In: <span className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{item.checkIn || "-"}</span> · Out: <span className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{item.checkOut || "-"}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -181,15 +204,16 @@ export function AttendancePage() {
             ))}
           </TableBody>
         </Table>
-        <div className={`mt-4 flex items-center justify-between text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
+        </div>
+        <div className={`mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {attendanceResponse.pagination?.page || 1} of {attendanceResponse.pagination?.totalPages || 1}
           </span>
-          <div className="flex gap-2">
-            <Button disabled={!attendanceResponse.pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button className="flex-1 sm:flex-none" disabled={!attendanceResponse.pagination?.hasPreviousPage} size="sm" variant="outline" onClick={() => setPage((value) => Math.max(1, value - 1))}>
               Previous
             </Button>
-            <Button disabled={!attendanceResponse.pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
+            <Button className="flex-1 sm:flex-none" disabled={!attendanceResponse.pagination?.hasNextPage} size="sm" variant="outline" onClick={() => setPage((value) => value + 1)}>
               Next
             </Button>
           </div>
