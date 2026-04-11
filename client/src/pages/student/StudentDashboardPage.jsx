@@ -301,33 +301,33 @@ export function StudentDashboardPage() {
   const shiftWarning = getShiftWarning(student);
 
   return (
-    <div className="min-h-screen bg-[#f3fbf5]">
+    <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-4 sm:px-6">
 
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-extrabold text-slate-900">{session?.name || "Student"}</h1>
-            <p className="text-xs text-slate-500">{studentData?.library?.name || "Library"}</p>
+            <p className="text-xs font-medium text-slate-500">{studentData?.library?.name || "Library"}</p>
           </div>
           <div className="flex gap-2">
-            <Button className="h-9 px-3 text-xs" onClick={() => navigate("/student/profile")} variant="outline">
+            <Button className="h-9 border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-white" onClick={() => navigate("/student/profile")} variant="outline">
               <UserRound className="mr-1.5 h-3.5 w-3.5" />
               Profile
             </Button>
-            <Button className="h-9 px-3 text-xs" onClick={logout} variant="outline">
+            <Button className="h-9 border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-white" onClick={logout} variant="outline">
               Logout
             </Button>
           </div>
         </div>
 
         {/* Tab Bar */}
-        <div className="mb-4 flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="mb-4 flex rounded-2xl bg-slate-200/70 p-1">
           <button
             onClick={() => setActiveTab("home")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all ${
               activeTab === "home"
-                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
+                ? "bg-white text-emerald-700 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -338,7 +338,7 @@ export function StudentDashboardPage() {
             onClick={() => setActiveTab("chat")}
             className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all ${
               activeTab === "chat"
-                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
+                ? "bg-white text-emerald-700 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -372,21 +372,21 @@ export function StudentDashboardPage() {
             ) : null}
 
             {/* Status Card */}
-            <div className={`rounded-3xl p-5 text-white shadow-lg ${student?.currentlyInLibrary ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20" : "bg-gradient-to-br from-slate-500 to-slate-700 shadow-slate-500/20"}`}>
+            <div className={`rounded-3xl p-6 text-white ${student?.currentlyInLibrary ? "bg-emerald-600 shadow-xl shadow-emerald-600/30" : "bg-slate-700 shadow-xl shadow-slate-700/20"}`}>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-white/95">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/80">
                     {student?.currentlyInLibrary ? "Currently Inside" : "Currently Outside"}
                   </p>
-                  <p className="mt-1 text-2xl font-extrabold">
+                  <p className="mt-2 text-3xl font-extrabold tracking-tight text-white">
                     {student?.currentlyInLibrary ? "Checked In" : "Checked Out"}
                   </p>
                   {student?.currentlyInLibrary ? (
-                    <p className="mt-1 font-mono text-sm text-white/90">{attendanceDisplay}</p>
+                    <p className="mt-2 font-mono text-base font-bold text-white/90">{attendanceDisplay}</p>
                   ) : null}
                 </div>
-                <div className={`rounded-2xl p-3 ${student?.currentlyInLibrary ? "bg-white/20" : "bg-white/10"}`}>
-                  <Clock className="h-6 w-6" />
+                <div className="rounded-2xl bg-white/15 p-3 ring-1 ring-white/20">
+                  <Clock className="h-7 w-7" />
                 </div>
               </div>
             </div>
@@ -415,7 +415,7 @@ export function StudentDashboardPage() {
                 label="Seat Number"
                 value={student?.seatNumber ? `Seat ${student.seatNumber}` : "Not assigned"}
                 icon={Armchair}
-                accent={student?.seatNumber ? "text-emerald-600" : "text-slate-400"}
+                accent={student?.seatNumber ? "text-emerald-700" : "text-slate-400"}
                 iconBg={student?.seatNumber ? "bg-emerald-100" : "bg-slate-100"}
               />
               <InfoCard
@@ -445,7 +445,7 @@ export function StudentDashboardPage() {
             {student?.seatNumber ? (
               <button
                 onClick={() => { setSeatModalOpen(true); setSeatNumberInput(""); setSeatError(""); setSeatSuccess(false); }}
-                className="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-[0.98]"
+                className="w-full rounded-2xl border-2 border-emerald-300 bg-white px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-[0.98]"
               >
                 <Armchair className="mr-2 inline h-4 w-4" />
                 {studentData?.pendingSeatChangeRequest ? "Seat Change Pending…" : "Request Seat Change"}
@@ -462,10 +462,10 @@ export function StudentDashboardPage() {
 
         {/* ── CHAT TAB ── */}
         {activeTab === "chat" ? (
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" style={{ height: "calc(100vh - 11rem)" }}>
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" style={{ height: "calc(100svh - 160px)", minHeight: "360px" }}>
             <div className="flex h-full flex-col">
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ecfdf5_0%,#f8fafc_100%)] p-4">
+              <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
                 <div className="space-y-3 px-1 py-2">
                   {chatMessages.length === 0 ? (
                     <p className="py-10 text-center text-sm text-slate-400">No messages yet. Say hello!</p>
@@ -741,8 +741,8 @@ function InfoCard({ label, value, icon: Icon, accent, iconBg }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className={`mt-1 truncate text-sm font-extrabold ${accent}`}>{value}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+          <p className={`mt-1.5 truncate text-sm font-extrabold ${accent}`}>{value}</p>
         </div>
         <div className={`shrink-0 rounded-xl p-2 ${iconBg}`}>
           <Icon className={`h-4 w-4 ${accent}`} />
