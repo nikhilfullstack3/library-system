@@ -49,7 +49,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "https://library-system-api-yq5q.onrender.com/api",
+      "apiUrl": "https://api.libhook.cloud/api",
       "router": {},
       "eas": {
         "projectId": "666a49ce-7962-4bbd-b3c5-7469b0428977"
