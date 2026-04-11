@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -65,7 +65,7 @@ function resolveAssetUrl(url = "") {
   return `${API_ORIGIN}${url}`;
 }
 
-function DateSeparator({ label }: { label: string }) {
+const DateSeparator = memo(function DateSeparator({ label }: { label: string }) {
   return (
     <View style={styles.dateSep}>
       <View style={styles.dateLine} />
@@ -73,7 +73,51 @@ function DateSeparator({ label }: { label: string }) {
       <View style={styles.dateLine} />
     </View>
   );
-}
+});
+
+const MessageBubble = memo(function MessageBubble({
+  message,
+  isOwn,
+  isAdmin,
+  showDate,
+}: {
+  message: any;
+  isOwn: boolean;
+  isAdmin: boolean;
+  showDate: boolean;
+}) {
+  const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
+  return (
+    <React.Fragment>
+      {showDate && <DateSeparator label={formatDateLabel(message.createdAt)} />}
+      <View style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
+        <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
+          {!isOwn ? (
+            <Text style={[styles.sender, isAdmin ? styles.senderAdmin : null]}>
+              {isAdmin ? `${message.senderName} (Admin)` : message.senderName}
+            </Text>
+          ) : null}
+          {message.message ? renderLinkedText(message.message, styles.messageText, styles.messageLink) : null}
+          {message.attachmentUrl ? (
+            message.attachmentType === "image" ? (
+              <Pressable onPress={() => Linking.openURL(attachmentUrl)}>
+                <Image source={{ uri: attachmentUrl }} style={styles.imageAttachment} />
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => Linking.openURL(attachmentUrl)} style={styles.fileAttachment}>
+                <Ionicons color="#2563eb" name="document-text-outline" size={18} />
+                <Text numberOfLines={1} style={styles.fileAttachmentText}>
+                  {message.attachmentName || "Attachment"}
+                </Text>
+              </Pressable>
+            )
+          ) : null}
+          <Text style={styles.metaText}>{formatTime(message.createdAt)}</Text>
+        </View>
+      </View>
+    </React.Fragment>
+  );
+}, (prev, next) => prev.message.id === next.message.id && prev.isOwn === next.isOwn);
 
 export function StudentChatScreen() {
   const { fetchChatMessages, refreshStudentData, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
@@ -170,41 +214,14 @@ export function StudentChatScreen() {
             const showDate =
               !prev ||
               new Date(message.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
-            const isOwn = message.senderName === session?.name;
-            const isAdmin = message.senderRole === "admin";
-            const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
-
             return (
-              <React.Fragment key={message.id}>
-                {showDate && <DateSeparator label={formatDateLabel(message.createdAt)} />}
-                <View style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
-                  <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
-                    {!isOwn ? (
-                      <Text style={[styles.sender, isAdmin ? styles.senderAdmin : null]}>
-                        {isAdmin ? `${message.senderName} (Admin)` : message.senderName}
-                      </Text>
-                    ) : null}
-                    {message.message
-                      ? renderLinkedText(message.message, styles.messageText, styles.messageLink)
-                      : null}
-                    {message.attachmentUrl ? (
-                      message.attachmentType === "image" ? (
-                        <Pressable onPress={() => Linking.openURL(attachmentUrl)}>
-                          <Image source={{ uri: attachmentUrl }} style={styles.imageAttachment} />
-                        </Pressable>
-                      ) : (
-                        <Pressable onPress={() => Linking.openURL(attachmentUrl)} style={styles.fileAttachment}>
-                          <Ionicons color="#2563eb" name="document-text-outline" size={18} />
-                          <Text numberOfLines={1} style={styles.fileAttachmentText}>
-                            {message.attachmentName || "Attachment"}
-                          </Text>
-                        </Pressable>
-                      )
-                    ) : null}
-                    <Text style={styles.metaText}>{formatTime(message.createdAt)}</Text>
-                  </View>
-                </View>
-              </React.Fragment>
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwn={message.senderName === session?.name}
+                isAdmin={message.senderRole === "admin"}
+                showDate={showDate}
+              />
             );
           })}
         </ScrollView>

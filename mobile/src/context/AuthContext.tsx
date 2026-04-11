@@ -370,7 +370,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!socketRef.current) {
       socketRef.current = io(API_ORIGIN, {
-        transports: ["websocket", "polling"],
+        transports: ["websocket"],
+        reconnectionAttempts: 5,
       });
     }
 
