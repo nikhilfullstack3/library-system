@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const initialForm = {
   address: "",
@@ -20,6 +21,7 @@ const initialForm = {
 
 export function RegistrationPage() {
   const { createStudent } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const documentInputId = useId();
   const cameraInputId = useId();
   const [form, setForm] = useState(initialForm);
@@ -60,7 +62,7 @@ export function RegistrationPage() {
     <Card className="rounded-[2rem] border-emerald-100 shadow-sm">
       <CardHeader>
         <CardTitle className="text-2xl">Student Registration</CardTitle>
-        <p className="text-sm text-slate-500">Clean registration with payment mode, document capture, and exact shift hours.</p>
+        <p className={`text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Clean registration with payment mode, document capture, and exact shift hours.</p>
       </CardHeader>
       <CardContent>
         <form className="grid gap-6" onSubmit={handleSubmit}>

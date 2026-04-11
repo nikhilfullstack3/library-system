@@ -17,7 +17,7 @@ import { colors } from "../src/theme/colors";
 
 export default function LoginScreen() {
   const { authError, booting, login, session, setAuthError } = useAuth();
-  const [role, setRole] = useState<"librarian" | "student" | "super_admin">("librarian");
+  const [role, setRole] = useState<"librarian" | "student">("librarian");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -87,7 +87,6 @@ export default function LoginScreen() {
             <View style={styles.roleRow}>
               <RoleButton active={role === "librarian"} label="Librarian" onPress={() => setRole("librarian")} />
               <RoleButton active={role === "student"} label="Student" onPress={() => setRole("student")} />
-              <RoleButton active={role === "super_admin"} label="Super Admin" onPress={() => setRole("super_admin")} />
             </View>
 
             <Field

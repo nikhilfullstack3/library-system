@@ -1,4 +1,5 @@
 import { cva } from "class-variance-authority";
+import { useTheme } from "../../context/ThemeContext";
 import { cn } from "../../lib/utils";
 
 const badgeVariants = cva(
@@ -20,5 +21,16 @@ const badgeVariants = cva(
 );
 
 export function Badge({ className, variant, ...props }) {
-  return <div className={cn(badgeVariants({ className, variant }))} {...props} />;
+  const { isMidnightJelly } = useTheme();
+
+  const jellyClass =
+    variant === "warning"
+      ? "border-fuchsia-300/20 bg-fuchsia-500/10 text-fuchsia-100"
+      : variant === "destructive"
+        ? "border-rose-300/20 bg-rose-400/10 text-rose-100"
+        : variant === "success" || variant === "default"
+          ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
+          : "border-white/10 bg-white/10 text-violet-100";
+
+  return <div className={cn(badgeVariants({ variant }), isMidnightJelly && jellyClass, className)} {...props} />;
 }

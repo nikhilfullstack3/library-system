@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const PERIODS = [
   { value: "1m", label: "1 Month" },
@@ -28,23 +29,24 @@ const TABS = [
 ];
 
 function StatCard({ icon: Icon, label, value, sub, trend, color = "emerald" }) {
+  const { isMidnightJelly } = useTheme();
   const colors = {
-    emerald: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600",
-    rose: "bg-rose-50 text-rose-600",
-    sky: "bg-sky-50 text-sky-600",
+    emerald: isMidnightJelly ? "bg-cyan-400/12 text-cyan-100" : "bg-emerald-50 text-emerald-600",
+    amber: isMidnightJelly ? "bg-fuchsia-500/12 text-fuchsia-100" : "bg-amber-50 text-amber-600",
+    rose: isMidnightJelly ? "bg-rose-400/12 text-rose-100" : "bg-rose-50 text-rose-600",
+    sky: isMidnightJelly ? "bg-violet-500/12 text-violet-100" : "bg-sky-50 text-sky-600",
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className={`rounded-2xl border p-4 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
       <div className="flex items-center gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colors[color]}`}>
           <Icon className="h-[18px] w-[18px]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className={`text-xs font-medium ${isMidnightJelly ? "text-violet-100/65" : "text-slate-500"}`}>{label}</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-xl font-extrabold text-slate-900">{value}</p>
+            <p className={`text-xl font-extrabold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{value}</p>
             {trend !== undefined && (
               <span className={`flex items-center text-xs font-bold ${trend >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                 {trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -52,7 +54,7 @@ function StatCard({ icon: Icon, label, value, sub, trend, color = "emerald" }) {
               </span>
             )}
           </div>
-          {sub && <p className="text-[11px] text-slate-400">{sub}</p>}
+          {sub && <p className={`text-[11px] ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>{sub}</p>}
         </div>
       </div>
     </div>
@@ -145,6 +147,7 @@ function timeAgo(dateStr) {
 
 export function AnalyticsPage() {
   const { fetchAnalytics, seedAnalyticsDemo, session } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const [period, setPeriod] = useState("6m");
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
@@ -204,8 +207,8 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Analytics</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Revenue, collections & renewal insights</p>
+          <h1 className={`text-2xl font-extrabold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Analytics</h1>
+          <p className={`mt-0.5 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Revenue, collections & renewal insights</p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
@@ -226,7 +229,7 @@ export function AnalyticsPage() {
               {seedError && <p className="text-[11px] font-medium text-rose-500">{seedError}</p>}
             </div>
           )}
-        <div className="flex gap-1.5 rounded-xl border border-slate-200 bg-white p-1">
+        <div className={`flex gap-1.5 rounded-xl border p-1 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -234,7 +237,9 @@ export function AnalyticsPage() {
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                 period === p.value
                   ? "bg-emerald-600 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                  : isMidnightJelly
+                    ? "text-violet-100/70 hover:bg-white/10 hover:text-white"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
               {p.label}
@@ -245,7 +250,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
+      <div className={`flex gap-1 rounded-xl border p-1 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
@@ -255,7 +260,9 @@ export function AnalyticsPage() {
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition ${
                 tab === t.id
                   ? "bg-slate-900 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                  : isMidnightJelly
+                    ? "text-violet-100/70 hover:bg-white/10 hover:text-white"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
               <Icon className="h-4 w-4" />

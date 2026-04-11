@@ -25,6 +25,83 @@ body {
   font-family: "Plus Jakarta Sans", sans-serif;
 }
 
+body.theme-midnight-jelly {
+  --background: #0b0916;
+  --foreground: #f7f3ff;
+  background:
+    radial-gradient(circle at top left, rgba(165, 104, 255, 0.24), transparent 24%),
+    radial-gradient(circle at top right, rgba(83, 236, 220, 0.16), transparent 22%),
+    linear-gradient(180deg, #140f24 0%, #080713 100%);
+  color: var(--foreground);
+}
+
+body.theme-midnight-jelly [class*="text-slate-900"] {
+  color: #f7f3ff !important;
+}
+
+body.theme-midnight-jelly [class*="text-slate-800"] {
+  color: #ece7ff !important;
+}
+
+body.theme-midnight-jelly [class*="text-slate-700"] {
+  color: rgba(238, 233, 255, 0.86) !important;
+}
+
+body.theme-midnight-jelly [class*="text-slate-600"],
+body.theme-midnight-jelly [class*="text-slate-500"] {
+  color: rgba(207, 198, 236, 0.78) !important;
+}
+
+body.theme-midnight-jelly [class*="text-slate-400"] {
+  color: rgba(189, 178, 222, 0.62) !important;
+}
+
+body.theme-midnight-jelly [class*="bg-white"] {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.theme-midnight-jelly [class*="bg-slate-50"] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+body.theme-midnight-jelly [class*="bg-slate-100"] {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.theme-midnight-jelly [class*="border-slate-200"] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+body.theme-midnight-jelly [class*="border-slate-100"] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.theme-midnight-jelly [class*="hover:bg-slate-50"]:hover,
+body.theme-midnight-jelly [class*="hover:bg-slate-100"]:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+body.theme-midnight-jelly [class*="from-emerald-50"],
+body.theme-midnight-jelly [class*="to-teal-50"],
+body.theme-midnight-jelly [class*="to-white"] {
+  --tw-gradient-from: rgba(168, 85, 247, 0.12) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(34, 211, 238, 0.08) var(--tw-gradient-to-position) !important;
+}
+
+body.theme-midnight-jelly h1,
+body.theme-midnight-jelly h2,
+body.theme-midnight-jelly h3 {
+  letter-spacing: -0.02em;
+}
+
+body.theme-midnight-jelly p,
+body.theme-midnight-jelly label,
+body.theme-midnight-jelly span,
+body.theme-midnight-jelly td,
+body.theme-midnight-jelly th {
+  text-rendering: optimizeLegibility;
+}
+
 #root {
   isolation: isolate;
   min-height: 100vh;

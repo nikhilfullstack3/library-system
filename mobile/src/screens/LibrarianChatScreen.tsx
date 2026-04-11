@@ -17,7 +17,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Screen } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { API_ORIGIN } from "../lib/api";
 import { colors } from "../theme/colors";
@@ -30,16 +29,22 @@ function formatTime(value: string) {
 }
 
 function formatFileSize(size: number) {
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function formatDateLabel(isoString: string) {
+  const d = new Date(isoString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en", { month: "long", day: "numeric" });
 }
 
 function renderLinkedText(text: string, textStyle: any, linkStyle: any) {
   const parts = text.split(URL_PATTERN);
-
   return (
     <Text style={textStyle}>
       {parts.map((part, index) =>
@@ -61,8 +66,27 @@ function resolveAssetUrl(url = "") {
   return `${API_ORIGIN}${url}`;
 }
 
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <View style={styles.dateSep}>
+      <View style={styles.dateLine} />
+      <Text style={styles.dateLabel}>{label}</Text>
+      <View style={styles.dateLine} />
+    </View>
+  );
+}
+
 export function LibrarianChatScreen() {
-  const { fetchChatMessages, libraryData, logout, refreshLibraryData, sendChatMessage, session, subscribeToLibraryEvents, updateChatAccess } = useAuth();
+  const {
+    fetchChatMessages,
+    libraryData,
+    logout,
+    refreshLibraryData,
+    sendChatMessage,
+    session,
+    subscribeToLibraryEvents,
+    updateChatAccess,
+  } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -98,20 +122,15 @@ export function LibrarianChatScreen() {
     const timeout = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 80);
-
     return () => clearTimeout(timeout);
   }, [messages]);
 
   useEffect(() => {
-    if (Platform.OS !== "android") {
-      return undefined;
-    }
-
+    if (Platform.OS !== "android") return undefined;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       router.replace("/(librarian)/dashboard");
       return true;
     });
-
     return () => subscription.remove();
   }, [router]);
 
@@ -122,23 +141,13 @@ export function LibrarianChatScreen() {
         multiple: false,
         type: ["image/*", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
       });
-
-      if (result.canceled || !result.assets?.[0]) {
-        return;
-      }
-
+      if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       if (asset.size && asset.size > MAX_ATTACHMENT_SIZE) {
         Alert.alert("File too large", `Please upload a file smaller than ${formatFileSize(MAX_ATTACHMENT_SIZE)}.`);
         return;
       }
-
-      setAttachment({
-        uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
-        size: asset.size,
-      });
+      setAttachment({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size });
     } catch (error: any) {
       Alert.alert("Attachment failed", error?.message || "Unable to select file");
     }
@@ -173,22 +182,14 @@ export function LibrarianChatScreen() {
   }
 
   function handleSenderPress(message: any) {
-    if (session?.role !== "admin") {
-      return;
-    }
-
+    if (session?.role !== "admin") return;
     const participantType = message.senderRole === "student" ? "student" : "librarian";
     const participantList = participantType === "student" ? libraryData?.students || [] : libraryData?.librarians || [];
     const participant =
       participantList.find((item: any) => item.id === message.senderId) ||
       participantList.find((item: any) => item.name === message.senderName);
-
-    if (!participant || participant.id === session?.librarianId) {
-      return;
-    }
-
+    if (!participant || participant.id === session?.librarianId) return;
     const nextChatEnabled = !participant.chatEnabled;
-
     Alert.alert(
       message.senderName,
       nextChatEnabled ? "Restore this user to library chat?" : "Remove this user from library chat?",
@@ -207,56 +208,70 @@ export function LibrarianChatScreen() {
   const chatAllowed = currentParticipant?.chatEnabled ?? true;
 
   return (
-    <Screen padded={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
-        style={styles.keyboardWrap}
-      >
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={styles.headerMain}>
-            <Pressable onPress={() => router.replace("/(librarian)/dashboard")} style={styles.iconButton}>
-              <Ionicons color="#0f2a1d" name="arrow-back" size={24} />
-            </Pressable>
-            <View style={styles.headerCopy}>
-              <Text numberOfLines={1} style={styles.headerTitle}>
-                {libraryData?.library?.name || "Library Chat"}
-              </Text>
-              <Text style={styles.headerSubtitle}>{session?.name}</Text>
-            </View>
-          </View>
-          <Pressable onPress={logout} style={styles.iconButton}>
-            <Ionicons color="#0f2a1d" name="log-out-outline" size={22} />
-          </Pressable>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerAvatar}>
+          <Ionicons color={colors.primary} name="chatbubbles" size={20} />
         </View>
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} style={styles.headerTitle}>
+            {libraryData?.library?.name || "Library Chat"}
+          </Text>
+          <Text style={styles.headerSub}>{session?.name}</Text>
+        </View>
+        <Pressable hitSlop={10} onPress={logout} style={styles.iconBtn}>
+          <Ionicons color="#0f2a1d" name="log-out-outline" size={22} />
+        </Pressable>
+      </View>
 
-        <View style={styles.chatShell}>
-          <ScrollView
-            contentContainerStyle={[styles.messagesContent, { paddingBottom: 92 + Math.max(insets.bottom, 10) }]}
-            keyboardShouldPersistTaps="handled"
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            style={styles.messagesScroll}
-          >
-            {messages.map((message) => {
-              const isOwn = message.senderName === session?.name;
-              const isAdmin = message.senderRole === "admin";
-              const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
+      {/* KAV wraps only the chat body so header stays fixed */}
+      <KeyboardAvoidingView
+        behavior="padding"
+        keyboardVerticalOffset={0}
+        style={styles.kav}
+      >
+        {/* Messages */}
+        <ScrollView
+          contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          style={styles.messagesScroll}
+        >
+          {messages.map((message, index) => {
+            const prev = messages[index - 1];
+            const showDate =
+              !prev ||
+              new Date(message.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+            const isOwn = message.senderName === session?.name;
+            const isAdmin = message.senderRole === "admin";
+            const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
 
-              return (
-                <View key={message.id} style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
+            return (
+              <React.Fragment key={message.id}>
+                {showDate && <DateSeparator label={formatDateLabel(message.createdAt)} />}
+                <View style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
                   <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
                     {!isOwn ? (
                       <Pressable
                         disabled={session?.role !== "admin" || updatingParticipantId !== ""}
                         onPress={() => handleSenderPress(message)}
                       >
-                        <Text style={[styles.sender, isAdmin ? styles.senderAdmin : null, session?.role === "admin" ? styles.senderPressable : null]}>
+                        <Text
+                          style={[
+                            styles.sender,
+                            isAdmin ? styles.senderAdmin : null,
+                            session?.role === "admin" ? styles.senderPressable : null,
+                          ]}
+                        >
                           {isAdmin ? `${message.senderName} (Admin)` : message.senderName}
                         </Text>
                       </Pressable>
                     ) : null}
-                    {message.message ? renderLinkedText(message.message, styles.messageText, styles.messageLink) : null}
+                    {message.message
+                      ? renderLinkedText(message.message, styles.messageText, styles.messageLink)
+                      : null}
                     {message.attachmentUrl ? (
                       message.attachmentType === "image" ? (
                         <Pressable onPress={() => Linking.openURL(attachmentUrl)}>
@@ -271,114 +286,136 @@ export function LibrarianChatScreen() {
                         </Pressable>
                       )
                     ) : null}
-                    <Text style={styles.metaText}>
-                      {String(message.senderRole).toUpperCase()} • {formatTime(message.createdAt)}
-                    </Text>
+                    <Text style={styles.metaText}>{formatTime(message.createdAt)}</Text>
                   </View>
                 </View>
-              );
-            })}
-          </ScrollView>
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
 
-          <View style={styles.bottomArea}>
-            {attachment ? (
-              <View style={styles.attachmentPreview}>
-                <View style={styles.attachmentInfo}>
-                  <Ionicons color={colors.primary} name="attach-outline" size={18} />
-                  <Text numberOfLines={1} style={styles.attachmentName}>
-                    {attachment.name}
-                  </Text>
-                  <Text style={styles.attachmentSize}>{formatFileSize(attachment.size || 0)}</Text>
-                </View>
-                <Pressable onPress={() => setAttachment(null)}>
-                  <Ionicons color={colors.textMuted} name="close-circle" size={20} />
-                </Pressable>
+        {/* Composer — flows naturally below messages */}
+        <View style={styles.bottomArea}>
+          {attachment ? (
+            <View style={styles.attachmentPreview}>
+              <View style={styles.attachmentInfo}>
+                <Ionicons color={colors.primary} name="attach-outline" size={18} />
+                <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
+                <Text style={styles.attachmentSize}>{formatFileSize(attachment.size || 0)}</Text>
               </View>
-            ) : null}
-
-            <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-              <Pressable onPress={handlePickAttachment} style={styles.attachButton}>
-                <Ionicons color={colors.primary} name="attach" size={20} />
-              </Pressable>
-              <TextInput
-                editable={chatAllowed}
-                onChangeText={setInput}
-                placeholder={chatAllowed ? "Message" : "Chat access removed by admin"}
-                placeholderTextColor="#8ea292"
-                style={styles.input}
-                value={input}
-              />
-              <Pressable
-                disabled={sending || !chatAllowed}
-                onPress={handleSend}
-                style={[styles.sendButton, sending || !chatAllowed ? styles.sendButtonDisabled : null]}
-              >
-                <Ionicons color="#fff" name="send" size={18} />
+              <Pressable onPress={() => setAttachment(null)}>
+                <Ionicons color={colors.textMuted} name="close-circle" size={20} />
               </Pressable>
             </View>
+          ) : null}
+
+          <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <Pressable onPress={handlePickAttachment} style={styles.attachButton}>
+              <Ionicons color={colors.primary} name="attach" size={20} />
+            </Pressable>
+            <TextInput
+              editable={chatAllowed}
+              multiline
+              onChangeText={setInput}
+              placeholder={chatAllowed ? "Message" : "Chat access removed by admin"}
+              placeholderTextColor="#8ea292"
+              style={styles.input}
+              value={input}
+            />
+            <Pressable
+              disabled={sending || !chatAllowed}
+              onPress={handleSend}
+              style={[styles.sendButton, (sending || !chatAllowed) && styles.sendButtonDisabled]}
+            >
+              <Ionicons color="#fff" name="send" size={18} />
+            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardWrap: {
+  root: {
     flex: 1,
     backgroundColor: "#dfece3",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#edf7ef",
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  headerMain: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 10,
-    flex: 1,
+    backgroundColor: "#edf7ef",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#c8e6cc",
+  },
+  headerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#d4ebd9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerCopy: {
     flex: 1,
   },
   headerTitle: {
     color: "#0f2a1d",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
   },
-  headerSubtitle: {
+  headerSub: {
     color: "#537261",
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 1,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
-  chatShell: {
+  kav: {
     flex: 1,
-    minHeight: 0,
-    backgroundColor: "#e9f4ec",
-    position: "relative",
   },
   messagesScroll: {
     flex: 1,
+    backgroundColor: "#e9f4ec",
   },
   messagesContent: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     gap: 2,
+  },
+  dateSep: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 10,
+    paddingHorizontal: 4,
+  },
+  dateLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#c3d9c8",
+  },
+  dateLabel: {
+    color: "#5a7a62",
+    fontSize: 11,
+    fontWeight: "600",
+    backgroundColor: "#d4ebd9",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   row: {
     width: "100%",
-    marginBottom: 10,
+    marginBottom: 4,
   },
   rowLeft: {
     alignItems: "flex-start",
@@ -387,19 +424,24 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   bubble: {
-    maxWidth: "82%",
-    borderRadius: 22,
+    maxWidth: "80%",
+    borderRadius: 18,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical: 8,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   bubbleOwn: {
     backgroundColor: "#dcf8c6",
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 4,
   },
   bubbleOther: {
     backgroundColor: "#ffffff",
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 4,
   },
   sender: {
     color: colors.primary,
@@ -413,32 +455,33 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   messageText: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
+    color: "#111",
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   messageLink: {
     color: "#2563eb",
+    textDecorationLine: "underline",
   },
   metaText: {
-    color: colors.textMuted,
-    fontSize: 11,
+    color: "#8ea292",
+    fontSize: 10,
     alignSelf: "flex-end",
   },
   imageAttachment: {
-    width: 220,
-    height: 180,
-    borderRadius: 16,
+    width: 210,
+    height: 170,
+    borderRadius: 14,
     backgroundColor: "#d9e8dc",
   },
   fileAttachment: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 14,
-    backgroundColor: "#f3f7f4",
+    borderRadius: 12,
+    backgroundColor: "#f0f7f2",
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignSelf: "flex-start",
   },
   fileAttachmentText: {
@@ -447,20 +490,20 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textDecorationLine: "underline",
   },
+  bottomArea: {
+    backgroundColor: "#edf7ef",
+    borderTopWidth: 1,
+    borderTopColor: "#c8e6cc",
+  },
   attachmentPreview: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fdfefe",
+    backgroundColor: "#f5fbf6",
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  bottomArea: {
-    backgroundColor: "#edf7ef",
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#d4ebd9",
   },
   attachmentInfo: {
     flexDirection: "row",
@@ -479,38 +522,42 @@ const styles = StyleSheet.create({
   },
   composerBar: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#edf7ef",
-    paddingHorizontal: 12,
-    paddingTop: 6,
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 8,
   },
   attachButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff",
+    marginBottom: 3,
   },
   input: {
     flex: 1,
-    minHeight: 46,
-    maxHeight: 100,
-    borderRadius: 22,
+    minHeight: 40,
+    maxHeight: 110,
+    borderRadius: 20,
     backgroundColor: "#ffffff",
     paddingHorizontal: 14,
-    color: colors.text,
+    paddingTop: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
+    color: "#111",
+    fontSize: 15,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 3,
   },
   sendButtonDisabled: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
 });

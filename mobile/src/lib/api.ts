@@ -2,8 +2,11 @@ import Constants from "expo-constants";
 
 const configuredApiUrl =
   process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  "http://192.168.1.21:5001/api";
+  Constants.expoConfig?.extra?.apiUrl;
+
+if (!configuredApiUrl) {
+  throw new Error("EXPO_PUBLIC_API_URL environment variable is required");
+}
 
 const API_BASE = configuredApiUrl.replace(/\/$/, "");
 const API_ORIGIN = API_BASE.replace(/\/api$/, "");

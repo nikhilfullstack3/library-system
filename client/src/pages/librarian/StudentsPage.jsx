@@ -15,6 +15,7 @@ import {
 } from "../../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
@@ -100,6 +101,7 @@ function getShiftWarning(student) {
 
 export function StudentsPage() {
   const { deleteStudent, fetchStudents, updateStudent, updateStudentDocumentVerification } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -135,17 +137,17 @@ export function StudentsPage() {
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Students</CardTitle>
-          <p className="mt-1 text-sm text-slate-500">Manage student profiles, seats, contact info, and document verification.</p>
+          <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Manage student profiles, seats, contact info, and document verification.</p>
         </div>
       </CardHeader>
       <CardContent>
         {searchQuery ? (
-          <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+          <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${isMidnightJelly ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100" : "border-sky-200 bg-sky-50 text-sky-700"}`}>
             Showing results for <span className="font-semibold">"{searchQuery}"</span>. Search matches student name, email, phone, or seat number.
           </div>
         ) : null}
         {endingSoonStudents.length ? (
-          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${isMidnightJelly ? "border-rose-300/20 bg-rose-400/10 text-rose-100" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
             {endingSoonStudents.length === 1
               ? `${endingSoonStudents[0].name}'s shift is about to end.`
               : `${endingSoonStudents.length} students have shifts ending within 30 minutes.`}
@@ -175,10 +177,10 @@ export function StudentsPage() {
               const shiftWarning = getShiftWarning(student);
 
               return (
-              <TableRow className={shiftWarning ? "bg-rose-50/60" : ""} key={student.id}>
-                <TableCell className="font-medium text-slate-900">
+              <TableRow className={shiftWarning ? (isMidnightJelly ? "bg-rose-400/8" : "bg-rose-50/60") : ""} key={student.id}>
+                <TableCell className={`font-medium ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
                   <button
-                    className="cursor-pointer text-sky-700 underline-offset-4 hover:text-sky-800 hover:underline"
+                    className={`cursor-pointer underline-offset-4 hover:underline ${isMidnightJelly ? "text-cyan-200 hover:text-cyan-100" : "text-sky-700 hover:text-sky-800"}`}
                     onClick={() =>
                       navigate(
                         `/librarian/students/${student.id}?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`
@@ -192,10 +194,10 @@ export function StudentsPage() {
                 <TableCell>{student.seatNumber}</TableCell>
                 <TableCell>{student.phone}</TableCell>
                 <TableCell>
-                  <div className={shiftWarning ? "font-semibold text-rose-600" : "text-slate-700"}>
+                  <div className={shiftWarning ? (isMidnightJelly ? "font-semibold text-rose-200" : "font-semibold text-rose-600") : isMidnightJelly ? "text-violet-100/85" : "text-slate-700"}>
                     {liveTimer || student.shiftTiming || student.shift || "-"}
                   </div>
-                  {shiftWarning ? <div className="text-xs text-rose-500">{shiftWarning.text}</div> : null}
+                  {shiftWarning ? <div className={`text-xs ${isMidnightJelly ? "text-rose-200/80" : "text-rose-500"}`}>{shiftWarning.text}</div> : null}
                 </TableCell>
                 <TableCell>
                   <Badge variant={documentVariant(student.documentVerificationStatus)}>
@@ -249,21 +251,21 @@ export function StudentsPage() {
                           <DialogTitle>{student.name}</DialogTitle>
                           <DialogDescription>Student profile and seat assignment details.</DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-                          <p><span className="font-semibold text-slate-900">Seat:</span> {student.seatNumber}</p>
-                          <p><span className="font-semibold text-slate-900">Phone:</span> {student.phone}</p>
-                          <p><span className="font-semibold text-slate-900">Address:</span> {student.address}</p>
-                          <p><span className="font-semibold text-slate-900">Shift:</span> {student.shift}</p>
-                          <p><span className="font-semibold text-slate-900">Shift Timing:</span> {student.shiftTiming || "-"}</p>
-                          <p><span className="font-semibold text-slate-900">Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
-                          {shiftWarning ? <p className="text-rose-600"><span className="font-semibold text-rose-700">Alert:</span> {shiftWarning.text}</p> : null}
-                          <p><span className="font-semibold text-slate-900">Login ID:</span> {student.loginId || "-"}</p>
-                          <p><span className="font-semibold text-slate-900">Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
+                        <div className={`grid gap-3 rounded-2xl p-4 text-sm ${isMidnightJelly ? "bg-white/5 text-violet-100/85" : "bg-slate-50 text-slate-700"}`}>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Seat:</span> {student.seatNumber}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Phone:</span> {student.phone}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Address:</span> {student.address}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift:</span> {student.shift}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift Timing:</span> {student.shiftTiming || "-"}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
+                          {shiftWarning ? <p className={isMidnightJelly ? "text-rose-200" : "text-rose-600"}><span className={`font-semibold ${isMidnightJelly ? "text-rose-100" : "text-rose-700"}`}>Alert:</span> {shiftWarning.text}</p> : null}
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Login ID:</span> {student.loginId || "-"}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
                           <p>
-                            <span className="font-semibold text-slate-900">Document Verification:</span>{" "}
+                            <span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Document Verification:</span>{" "}
                             {documentLabel(student.documentVerificationStatus)}
                           </p>
-                          <p><span className="font-semibold text-slate-900">Documents:</span> {student.documents.join(", ") || "None"}</p>
+                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Documents:</span> {student.documents.join(", ") || "None"}</p>
                           <div className="pt-2">
                             <Button
                               disabled={updatingVerificationId === student.id || !student.documents.length}
@@ -298,7 +300,7 @@ export function StudentsPage() {
             )})}
           </TableBody>
         </Table>
-        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {pagination?.page || 1} of {pagination?.totalPages || 1}
           </span>

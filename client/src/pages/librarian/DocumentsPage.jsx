@@ -4,9 +4,11 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export function DocumentsPage() {
   const { fetchDocuments } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const [page, setPage] = useState(1);
   const [documentResponse, setDocumentResponse] = useState({ items: [], pagination: null });
 
@@ -18,7 +20,7 @@ export function DocumentsPage() {
     <Card className="rounded-3xl">
       <CardHeader>
         <CardTitle>Documents</CardTitle>
-        <p className="mt-1 text-sm text-slate-500">Review uploaded student documents and verification status.</p>
+        <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Review uploaded student documents and verification status.</p>
       </CardHeader>
       <CardContent>
         <Table>
@@ -34,7 +36,7 @@ export function DocumentsPage() {
           <TableBody>
             {documentResponse.items.map((document) => (
               <TableRow key={document.id}>
-                <TableCell className="font-medium text-slate-900">{document.student}</TableCell>
+                <TableCell className={`font-medium ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{document.student}</TableCell>
                 <TableCell>{document.seat}</TableCell>
                 <TableCell>{document.document}</TableCell>
                 <TableCell>{new Date(document.uploadedAt).toLocaleDateString()}</TableCell>
@@ -45,7 +47,7 @@ export function DocumentsPage() {
             ))}
           </TableBody>
         </Table>
-        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {documentResponse.pagination?.page || 1} of {documentResponse.pagination?.totalPages || 1}
           </span>

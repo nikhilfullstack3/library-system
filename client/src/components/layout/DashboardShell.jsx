@@ -1,7 +1,8 @@
-import { FileText, LayoutDashboard, MessageCircleMore, Rows3, Search, SquareLibrary, UserPlus, Users } from "lucide-react";
+import { FileText, LayoutDashboard, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { AppSidebar } from "./AppSidebar";
 
 const mobileLinks = [
@@ -18,6 +19,7 @@ export function DashboardShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { libraryData } = useAuth();
+  const { isMidnightJelly, toggleMidnightJelly } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const searchOriginRef = useRef("");
@@ -56,58 +58,95 @@ export function DashboardShell() {
   }, [location.pathname, location.search, navigate, searchTerm]);
 
   return (
-    <div className="min-h-screen text-slate-900">
+    <div className={`min-h-screen ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
       <div className="flex min-h-screen">
         <div className="hidden md:block">
           <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((current) => !current)} />
         </div>
 
         <div className="min-w-0 flex-1">
-          {/* Modern slim header */}
-          <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl">
+          <header
+            className={`sticky top-0 z-20 border-b backdrop-blur-2xl ${
+              isMidnightJelly
+                ? "border-white/10 bg-[#120f23]/70"
+                : "border-slate-200/60 bg-white/70"
+            }`}
+          >
             <div className="flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-              {/* Brand/title */}
               <div className="min-w-0 flex-1">
-                <h1 className="truncate font-display text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                  <span className="text-gradient">{libraryData?.library?.name || "Studyly Library"}</span>
+                <h1
+                  className={`truncate font-display text-xl font-extrabold tracking-tight sm:text-2xl ${
+                    isMidnightJelly ? "text-violet-50" : "text-slate-900"
+                  }`}
+                >
+                  <span>{libraryData?.library?.name || "Studyly Library"}</span>
                 </h1>
               </div>
 
-              {/* Search */}
               <div className="hidden flex-1 max-w-md sm:block">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 shadow-sm transition-all focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-100">
-                  <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <div
+                  className={`flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm transition-all ${
+                    isMidnightJelly
+                      ? "border-white/10 bg-white/10 text-violet-50 focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-400/15"
+                      : "border-slate-200 bg-white/80 focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-100"
+                  }`}
+                >
+                  <Search className={`h-4 w-4 shrink-0 ${isMidnightJelly ? "text-violet-200/70" : "text-slate-400"}`} />
                   <input
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    className={`w-full bg-transparent text-sm outline-none ${
+                      isMidnightJelly ? "placeholder:text-violet-200/50" : "placeholder:text-slate-400"
+                    }`}
                     placeholder="Search students by name or number…"
                   />
                   {searchTerm && (
-                    <kbd className="hidden rounded-lg bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 sm:inline">
+                    <kbd
+                      className={`hidden rounded-lg px-1.5 py-0.5 text-[10px] font-bold sm:inline ${
+                        isMidnightJelly ? "bg-white/10 text-violet-100" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
                       ⌘K
                     </kbd>
                   )}
                 </div>
               </div>
 
+              <button
+                onClick={toggleMidnightJelly}
+                type="button"
+                className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition ${
+                  isMidnightJelly
+                    ? "border-violet-300/30 bg-gradient-to-r from-violet-500/25 to-cyan-400/20 text-violet-50"
+                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-violet-200 hover:text-violet-700"
+                }`}
+              >
+                <MoonStar className="h-4 w-4" />
+                {isMidnightJelly ? "Midnight Jelly On" : "Midnight Jelly"}
+              </button>
             </div>
 
-            {/* Mobile search */}
             <div className="px-4 pb-3 sm:hidden">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-2 shadow-sm focus-within:border-emerald-400">
-                <Search className="h-4 w-4 shrink-0 text-slate-400" />
+              <div
+                className={`flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm ${
+                  isMidnightJelly
+                    ? "border-white/10 bg-white/10 focus-within:border-violet-300"
+                    : "border-slate-200 bg-white/80 focus-within:border-emerald-400"
+                }`}
+              >
+                <Search className={`h-4 w-4 shrink-0 ${isMidnightJelly ? "text-violet-200/70" : "text-slate-400"}`} />
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  className={`w-full bg-transparent text-sm outline-none ${
+                    isMidnightJelly ? "text-violet-50 placeholder:text-violet-200/50" : "placeholder:text-slate-400"
+                  }`}
                   placeholder="Search students…"
                 />
               </div>
             </div>
 
-            {/* Mobile nav */}
-            <div className="border-t border-slate-200/60 px-4 py-2.5 md:hidden">
+            <div className={`px-4 py-2.5 md:hidden ${isMidnightJelly ? "border-t border-white/10" : "border-t border-slate-200/60"}`}>
               <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {mobileLinks.map((link) => {
                   const Icon = link.icon;
@@ -118,8 +157,12 @@ export function DashboardShell() {
                       className={({ isActive }) =>
                         `flex min-w-fit items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-bold transition ${
                           isActive
-                            ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
-                            : "border border-slate-200 bg-white/80 text-slate-600"
+                            ? isMidnightJelly
+                              ? "bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-md shadow-violet-500/25"
+                              : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
+                            : isMidnightJelly
+                              ? "border border-white/10 bg-white/10 text-violet-100"
+                              : "border border-slate-200 bg-white/80 text-slate-600"
                         }`
                       }
                       end={link.to === "/librarian"}

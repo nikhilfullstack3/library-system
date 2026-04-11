@@ -81,9 +81,17 @@ export default function LibrarianLayout() {
         }}
       />
       <Tabs.Screen
+        name="seats"
+        options={{
+          title: "Seats",
+          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="bed-outline" size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="chat"
         options={{
           title: "Chat",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons color={color} name="chatbubble-ellipses-outline" size={size} />,
         }}
       />

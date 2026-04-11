@@ -1,6 +1,7 @@
 import { MessageSquare, Paperclip, Send, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { API_ORIGIN } from "../../lib/api";
 
 const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
@@ -53,6 +54,7 @@ function getInitials(name) {
 
 export function ChatPage() {
   const { fetchChatMessages, libraryData, refreshLibraryData, sendChatMessage, session, subscribeToLibraryEvents, updateChatAccess } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -161,38 +163,36 @@ export function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200/60 bg-gradient-to-r from-emerald-50/60 via-white to-teal-50/60 px-5 py-4">
+    <div className={`flex h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-3xl border backdrop-blur-xl ${isMidnightJelly ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-slate-200/70 bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]"}`}>
+      <div className={`flex items-center justify-between border-b px-5 py-4 ${isMidnightJelly ? "border-white/10 bg-gradient-to-r from-violet-500/10 via-transparent to-cyan-400/10" : "border-slate-200/60 bg-gradient-to-r from-emerald-50/60 via-white to-teal-50/60"}`}>
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-md ${isMidnightJelly ? "bg-gradient-to-br from-violet-500 to-cyan-400 shadow-violet-500/25" : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25"}`}>
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-display text-lg font-extrabold tracking-tight text-slate-900">Library Chat</h2>
-            <p className="text-xs font-medium text-slate-500">
+            <h2 className={`font-display text-lg font-extrabold tracking-tight ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Library Chat</h2>
+            <p className={`text-xs font-medium ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
               {chatMessages.length} {chatMessages.length === 1 ? "message" : "messages"}
             </p>
           </div>
         </div>
-        <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 sm:flex">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        <span className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest sm:flex ${isMidnightJelly ? "bg-cyan-400/10 text-cyan-100" : "bg-emerald-50 text-emerald-700"}`}>
+          <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${isMidnightJelly ? "bg-cyan-300" : "bg-emerald-500"}`} />
           Live
         </span>
       </div>
 
-      {/* Messages */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-50/60 to-white/40 p-4 sm:p-6"
+        className={`flex-1 overflow-y-auto p-4 sm:p-6 ${isMidnightJelly ? "bg-gradient-to-b from-[#140f24]/40 to-[#0a0913]/40" : "bg-gradient-to-b from-slate-50/60 to-white/40"}`}
       >
         {chatMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50">
-              <MessageSquare className="h-7 w-7 text-emerald-500" />
+            <div className={`flex h-16 w-16 items-center justify-center rounded-3xl ${isMidnightJelly ? "bg-violet-500/12" : "bg-emerald-50"}`}>
+              <MessageSquare className={`h-7 w-7 ${isMidnightJelly ? "text-violet-200" : "text-emerald-500"}`} />
             </div>
-            <p className="mt-4 text-sm font-bold text-slate-700">No messages yet</p>
-            <p className="mt-1 text-xs text-slate-400">Start the conversation by sending a message below</p>
+            <p className={`mt-4 text-sm font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-700"}`}>No messages yet</p>
+            <p className={`mt-1 text-xs ${isMidnightJelly ? "text-violet-100/60" : "text-slate-400"}`}>Start the conversation by sending a message below</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -205,8 +205,12 @@ export function ChatPage() {
                   {!isOwnMessage && (
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white shadow-sm ${
                       isAdminMessage
-                        ? "bg-gradient-to-br from-amber-500 to-orange-600"
-                        : "bg-gradient-to-br from-slate-500 to-slate-700"
+                        ? isMidnightJelly
+                          ? "bg-gradient-to-br from-fuchsia-500 to-violet-500"
+                          : "bg-gradient-to-br from-amber-500 to-orange-600"
+                        : isMidnightJelly
+                          ? "bg-gradient-to-br from-slate-600 to-slate-800"
+                          : "bg-gradient-to-br from-slate-500 to-slate-700"
                     }`}>
                       {getInitials(message.senderName)}
                     </div>
@@ -215,7 +219,7 @@ export function ChatPage() {
                     {!isOwnMessage && (
                       <button
                         className={`mb-1 px-2 text-[10px] font-extrabold uppercase tracking-wider ${
-                          isAdminMessage ? "text-amber-600" : "text-slate-500"
+                          isAdminMessage ? (isMidnightJelly ? "text-fuchsia-200" : "text-amber-600") : isMidnightJelly ? "text-violet-100/55" : "text-slate-500"
                         } ${session?.role === "admin" ? "cursor-pointer hover:underline" : "cursor-default"}`}
                         disabled={session?.role !== "admin" || Boolean(updatingParticipantId)}
                         onClick={() => handleSenderClick(message)}
@@ -227,8 +231,12 @@ export function ChatPage() {
                     <div
                       className={`rounded-3xl px-4 py-2.5 shadow-sm ${
                         isOwnMessage
-                          ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20"
-                          : "rounded-bl-md border border-slate-200 bg-white text-slate-900"
+                          ? isMidnightJelly
+                            ? "rounded-br-md bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-violet-500/20"
+                            : "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20"
+                          : isMidnightJelly
+                            ? "rounded-bl-md border border-white/10 bg-white/10 text-violet-50"
+                            : "rounded-bl-md border border-slate-200 bg-white text-slate-900"
                       }`}
                     >
                       {message.message && (
@@ -251,7 +259,9 @@ export function ChatPage() {
                               className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${
                                 isOwnMessage
                                   ? "bg-white/20 text-white hover:bg-white/30"
-                                  : "border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  : isMidnightJelly
+                                    ? "border border-white/10 bg-white/10 text-cyan-100 hover:bg-white/15"
+                                    : "border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                               }`}
                               href={resolveAssetUrl(message.attachmentUrl)}
                               rel="noreferrer"
@@ -264,12 +274,12 @@ export function ChatPage() {
                         </div>
                       ) : null}
                     </div>
-                    <span className={`mt-1 px-2 text-[10px] font-medium ${isOwnMessage ? "text-slate-400" : "text-slate-400"}`}>
+                    <span className={`mt-1 px-2 text-[10px] font-medium ${isMidnightJelly ? "text-violet-100/45" : "text-slate-400"}`}>
                       {formatChatTime(message.createdAt)}
                     </span>
                   </div>
                   {isOwnMessage && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-[11px] font-extrabold text-white shadow-sm">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white shadow-sm ${isMidnightJelly ? "bg-gradient-to-br from-violet-500 to-cyan-400" : "bg-gradient-to-br from-emerald-500 to-teal-600"}`}>
                       {getInitials(session?.name)}
                     </div>
                   )}
@@ -281,25 +291,24 @@ export function ChatPage() {
         )}
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-slate-200/60 bg-white/80 px-4 py-4 backdrop-blur sm:px-5">
+      <div className={`border-t px-4 py-4 backdrop-blur sm:px-5 ${isMidnightJelly ? "border-white/10 bg-[#120f23]/70" : "border-slate-200/60 bg-white/80"}`}>
         {!chatAllowed ? (
-          <div className="rounded-2xl bg-rose-50 px-4 py-3 text-center text-xs font-bold text-rose-600">
+          <div className={`rounded-2xl px-4 py-3 text-center text-xs font-bold ${isMidnightJelly ? "bg-rose-400/10 text-rose-100" : "bg-rose-50 text-rose-600"}`}>
             Admin has removed your chat access.
           </div>
         ) : (
           <form onSubmit={handleSend}>
             {attachment && (
-              <div className="mb-3 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+              <div className={`mb-3 flex items-center justify-between rounded-2xl border px-3 py-2 ${isMidnightJelly ? "border-cyan-300/20 bg-cyan-400/10" : "border-emerald-200 bg-emerald-50"}`}>
+                <div className={`flex items-center gap-2 text-xs font-bold ${isMidnightJelly ? "text-cyan-100" : "text-emerald-700"}`}>
                   <Paperclip className="h-3.5 w-3.5" />
                   <span className="truncate">{attachment.name}</span>
-                  <span className="text-emerald-500">· {formatFileSize(attachment.size || 0)}</span>
+                  <span className={isMidnightJelly ? "text-cyan-100/70" : "text-emerald-500"}>· {formatFileSize(attachment.size || 0)}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAttachment(null)}
-                  className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100"
+                  className={`rounded-lg p-1 ${isMidnightJelly ? "text-cyan-100 hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-100"}`}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -307,7 +316,7 @@ export function ChatPage() {
             )}
 
             <div className="flex items-center gap-2">
-              <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600">
+              <label className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border transition ${isMidnightJelly ? "border-white/10 bg-white/10 text-violet-100/70 hover:border-violet-300/30 hover:bg-white/15 hover:text-violet-50" : "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"}`}>
                 <Paperclip className="h-4 w-4" />
                 <input
                   className="hidden"
@@ -321,12 +330,12 @@ export function ChatPage() {
                 onChange={(event) => setChatInput(event.target.value)}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Type a message…"
-                className="flex h-11 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                className={`flex h-11 flex-1 rounded-2xl border px-4 text-sm outline-none transition-all ${isMidnightJelly ? "border-white/10 bg-white/5 text-violet-50 placeholder:text-violet-100/45 focus:border-violet-300 focus:bg-white/10 focus:ring-4 focus:ring-violet-400/15" : "border-slate-200 bg-slate-50 placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"}`}
               />
               <button
                 type="submit"
                 disabled={sending || (!chatInput.trim() && !attachment)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-lg hover:shadow-emerald-500/35 disabled:opacity-50 disabled:shadow-none active:scale-95"
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-md transition-all disabled:opacity-50 disabled:shadow-none active:scale-95 ${isMidnightJelly ? "bg-gradient-to-br from-violet-500 to-cyan-400 shadow-violet-500/25 hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/35" : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25 hover:from-emerald-600 hover:to-teal-700 hover:shadow-lg hover:shadow-emerald-500/35"}`}
               >
                 <Send className="h-4 w-4" />
               </button>

@@ -1,9 +1,11 @@
 import { Armchair, Phone, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export function SeatsPage() {
   const { assignSeat, libraryData } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const seats = libraryData?.seats || [];
 
   const [filter, setFilter] = useState("all");
@@ -57,12 +59,11 @@ export function SeatsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className={`rounded-3xl border p-6 shadow-sm ${isMidnightJelly ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-slate-200 bg-white"}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">Seats</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className={`text-2xl font-extrabold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Seats</h1>
+            <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
               Tap any seat to assign or change its student.
             </p>
           </div>
@@ -75,7 +76,7 @@ export function SeatsPage() {
 
         {/* Filter + Search */}
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <div className="flex rounded-2xl bg-slate-100 p-1">
+          <div className={`flex rounded-2xl p-1 ${isMidnightJelly ? "bg-white/10" : "bg-slate-100"}`}>
             {[
               { key: "all", label: "All" },
               { key: "occupied", label: "Occupied" },
@@ -87,28 +88,31 @@ export function SeatsPage() {
                 onClick={() => setFilter(tab.key)}
                 className={`rounded-xl px-4 py-1.5 text-xs font-bold transition ${
                   filter === tab.key
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? isMidnightJelly
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-sm"
+                      : "bg-white text-emerald-700 shadow-sm"
+                    : isMidnightJelly
+                      ? "text-violet-100/70 hover:text-white"
+                      : "text-slate-500 hover:text-slate-700"
                 }`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
-          <div className="flex flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 focus-within:border-emerald-400">
-            <Search className="h-4 w-4 text-slate-400" />
+          <div className={`flex flex-1 items-center gap-2 rounded-2xl border px-4 py-2 ${isMidnightJelly ? "border-white/10 bg-white/10 focus-within:border-violet-300" : "border-slate-200 bg-white focus-within:border-emerald-400"}`}>
+            <Search className={`h-4 w-4 ${isMidnightJelly ? "text-violet-100/55" : "text-slate-400"}`} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search seat or student"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className={`w-full bg-transparent text-sm outline-none ${isMidnightJelly ? "text-violet-50 placeholder:text-violet-100/45" : "placeholder:text-slate-400"}`}
             />
           </div>
         </div>
       </div>
 
-      {/* Seat Cards */}
       {filteredSeats.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredSeats.map((seat) => {
@@ -120,8 +124,12 @@ export function SeatsPage() {
                 onClick={() => openSeat(seat)}
                 className={`group relative overflow-hidden rounded-3xl border p-5 text-left transition-all hover:-translate-y-1 hover:shadow-lg ${
                   occupied
-                    ? "border-rose-200 bg-gradient-to-br from-rose-50 to-white"
-                    : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white"
+                    ? isMidnightJelly
+                      ? "border-rose-300/20 bg-gradient-to-br from-rose-400/10 to-white/5"
+                      : "border-rose-200 bg-gradient-to-br from-rose-50 to-white"
+                    : isMidnightJelly
+                      ? "border-cyan-300/20 bg-gradient-to-br from-cyan-400/10 to-white/5"
+                      : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -133,7 +141,7 @@ export function SeatsPage() {
                     >
                       <Armchair className="h-5 w-5" />
                     </div>
-                    <h2 className="text-lg font-extrabold text-slate-900">{seat.label}</h2>
+                    <h2 className={`text-lg font-extrabold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{seat.label}</h2>
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest ${
@@ -143,10 +151,10 @@ export function SeatsPage() {
                     {occupied ? "Occupied" : "Empty"}
                   </span>
                 </div>
-                <p className="mt-4 text-sm font-semibold text-slate-700">
+                <p className={`mt-4 text-sm font-semibold ${isMidnightJelly ? "text-violet-100/85" : "text-slate-700"}`}>
                   {occupied ? seat.student?.name : "Available for assignment"}
                 </p>
-                <p className="mt-1 text-xs text-slate-400 group-hover:text-emerald-600">
+                <p className={`mt-1 text-xs ${isMidnightJelly ? "text-violet-100/55 group-hover:text-cyan-200" : "text-slate-400 group-hover:text-emerald-600"}`}>
                   Tap to {occupied ? "reassign or clear" : "assign student"}
                 </p>
               </button>
@@ -154,8 +162,8 @@ export function SeatsPage() {
           })}
         </div>
       ) : (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center">
-          <p className="text-sm text-slate-400">No seats match your filter</p>
+        <div className={`rounded-3xl border border-dashed p-12 text-center ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+          <p className={`text-sm ${isMidnightJelly ? "text-violet-100/60" : "text-slate-400"}`}>No seats match your filter</p>
         </div>
       )}
 
@@ -166,7 +174,7 @@ export function SeatsPage() {
           onClick={closeSeat}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className={`w-full max-w-sm overflow-hidden rounded-3xl shadow-2xl ${isMidnightJelly ? "bg-[#120f23]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div
@@ -209,11 +217,11 @@ export function SeatsPage() {
                 handleAssignSeat(phoneInput);
               }}
             >
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              <label className={`text-xs font-bold uppercase tracking-wider ${isMidnightJelly ? "text-violet-100/75" : "text-slate-600"}`}>
                 {activeSeat.status === "occupied" ? "Reassign to student" : "Assign to student"}
               </label>
-              <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 focus-within:border-emerald-400 focus-within:bg-white">
-                <Phone className="h-4 w-4 text-slate-400" />
+              <div className={`mt-2 flex items-center gap-2 rounded-2xl border px-4 py-3 ${isMidnightJelly ? "border-white/10 bg-white/10 focus-within:border-violet-300" : "border-slate-200 bg-slate-50 focus-within:border-emerald-400 focus-within:bg-white"}`}>
+                <Phone className={`h-4 w-4 ${isMidnightJelly ? "text-violet-100/55" : "text-slate-400"}`} />
                 <input
                   type="tel"
                   inputMode="numeric"
@@ -221,10 +229,10 @@ export function SeatsPage() {
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
                   placeholder="Student phone number"
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  className={`w-full bg-transparent text-sm outline-none ${isMidnightJelly ? "text-violet-50 placeholder:text-violet-100/45" : "placeholder:text-slate-400"}`}
                 />
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">Enter the student's registered phone number</p>
+              <p className={`mt-2 text-[11px] ${isMidnightJelly ? "text-violet-100/55" : "text-slate-400"}`}>Enter the student's registered phone number</p>
               {seatError ? (
                 <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
                   {seatError}

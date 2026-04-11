@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 function statusVariant(status) {
   if (status === "paid") return "success";
@@ -13,6 +14,7 @@ function statusVariant(status) {
 
 export function PaymentsPage() {
   const { fetchPayments, markPaymentPaid } = useAuth();
+  const { isMidnightJelly } = useTheme();
   const [page, setPage] = useState(1);
   const [paymentResponse, setPaymentResponse] = useState({ items: [], pagination: null });
 
@@ -28,7 +30,7 @@ export function PaymentsPage() {
     <Card className="rounded-3xl">
       <CardHeader>
         <CardTitle>Payments</CardTitle>
-        <p className="mt-1 text-sm text-slate-500">Monthly payment records with quick action to mark dues as paid.</p>
+        <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Monthly payment records with quick action to mark dues as paid.</p>
       </CardHeader>
       <CardContent>
         <Table>
@@ -45,7 +47,7 @@ export function PaymentsPage() {
           <TableBody>
             {paymentResponse.items.map((payment) => (
               <TableRow key={payment.id}>
-                <TableCell className="font-medium text-slate-900">{payment.student}</TableCell>
+                <TableCell className={`font-medium ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{payment.student}</TableCell>
                 <TableCell>{payment.seat}</TableCell>
                 <TableCell>{payment.month}</TableCell>
                 <TableCell>Rs {payment.amount}</TableCell>
@@ -68,7 +70,7 @@ export function PaymentsPage() {
             ))}
           </TableBody>
         </Table>
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+        <div className={`mt-4 flex items-center justify-between text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {paymentResponse.pagination?.page || 1} of {paymentResponse.pagination?.totalPages || 1}
           </span>

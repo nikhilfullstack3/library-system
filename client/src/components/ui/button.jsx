@@ -1,5 +1,6 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
+import { useTheme } from "../../context/ThemeContext";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
@@ -32,8 +33,25 @@ const buttonVariants = cva(
 
 export function Button({ asChild = false, className, size, variant, ...props }) {
   const Comp = asChild ? Slot : "button";
+  const { isMidnightJelly } = useTheme();
 
-  return <Comp className={cn(buttonVariants({ className, size, variant }))} {...props} />;
+  const jellyVariantClass =
+    variant === "default"
+      ? "bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/30 hover:brightness-110"
+      : variant === "secondary"
+        ? "bg-white/10 text-violet-50 hover:bg-white/15"
+        : variant === "outline"
+          ? "border border-white/10 bg-white/10 text-violet-100 backdrop-blur hover:bg-white/15 hover:border-violet-300/30"
+          : variant === "ghost"
+            ? "text-violet-100 hover:bg-white/10"
+            : "bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30";
+
+  return (
+    <Comp
+      className={cn(buttonVariants({ size, variant }), isMidnightJelly && jellyVariantClass, className)}
+      {...props}
+    />
+  );
 }
 
 export { buttonVariants };

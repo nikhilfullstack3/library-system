@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Screen } from "../components/ui";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useAuth } from "../context/AuthContext";
 import { API_ORIGIN } from "../lib/api";
 import { colors } from "../theme/colors";
@@ -28,16 +28,22 @@ function formatTime(value: string) {
 }
 
 function formatFileSize(size: number) {
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function formatDateLabel(isoString: string) {
+  const d = new Date(isoString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en", { month: "long", day: "numeric" });
 }
 
 function renderLinkedText(text: string, textStyle: any, linkStyle: any) {
   const parts = text.split(URL_PATTERN);
-
   return (
     <Text style={textStyle}>
       {parts.map((part, index) =>
@@ -59,6 +65,15 @@ function resolveAssetUrl(url = "") {
   return `${API_ORIGIN}${url}`;
 }
 
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <View style={styles.dateSep}>
+      <View style={styles.dateLine} />
+      <Text style={styles.dateLabel}>{label}</Text>
+      <View style={styles.dateLine} />
+    </View>
+  );
+}
 
 export function StudentChatScreen() {
   const { fetchChatMessages, refreshStudentData, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
@@ -68,6 +83,7 @@ export function StudentChatScreen() {
   const [attachment, setAttachment] = useState<{ uri: string; name: string; mimeType?: string; size?: number } | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
 
   const loadMessages = useCallback(async () => {
     const nextMessages = await fetchChatMessages();
@@ -81,15 +97,11 @@ export function StudentChatScreen() {
   useEffect(() => {
     return subscribeToLibraryEvents({
       onAccessUpdate: async () => {
-        if (session?.studentId) {
-          await refreshStudentData(session.studentId);
-        }
+        if (session?.studentId) await refreshStudentData(session.studentId);
         await loadMessages();
       },
       onMessage: async () => {
-        if (session?.studentId) {
-          await refreshStudentData(session.studentId);
-        }
+        if (session?.studentId) await refreshStudentData(session.studentId);
         await loadMessages();
       },
     });
@@ -99,7 +111,6 @@ export function StudentChatScreen() {
     const timeout = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 80);
-
     return () => clearTimeout(timeout);
   }, [messages]);
 
@@ -110,23 +121,13 @@ export function StudentChatScreen() {
         multiple: false,
         type: ["image/*", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
       });
-
-      if (result.canceled || !result.assets?.[0]) {
-        return;
-      }
-
+      if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       if (asset.size && asset.size > MAX_ATTACHMENT_SIZE) {
         Alert.alert("File too large", `Please upload a file smaller than ${formatFileSize(MAX_ATTACHMENT_SIZE)}.`);
         return;
       }
-
-      setAttachment({
-        uri: asset.uri,
-        name: asset.name,
-        mimeType: asset.mimeType,
-        size: asset.size,
-      });
+      setAttachment({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, size: asset.size });
     } catch (error: any) {
       Alert.alert("Attachment failed", error?.message || "Unable to select file");
     }
@@ -147,35 +148,45 @@ export function StudentChatScreen() {
     }
   }
 
-  return (
-    <Screen padded={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
-        style={styles.keyboardWrap}
-      >
-        <View style={styles.chatShell}>
-          <ScrollView
-            contentContainerStyle={[styles.messagesContent, { paddingBottom: 92 + Math.max(insets.bottom, 10) }]}
-            keyboardShouldPersistTaps="handled"
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            style={styles.messagesScroll}
-          >
-            {messages.map((message) => {
-              const isOwn = message.senderName === session?.name;
-              const isAdmin = message.senderRole === "admin";
-              const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
+  const chatDisabled = studentData?.student?.chatEnabled === false;
 
-              return (
-                <View key={message.id} style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
+  return (
+    <View style={styles.root}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        keyboardVerticalOffset={headerHeight}
+        style={styles.kav}
+      >
+        {/* Messages */}
+        <ScrollView
+          contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          style={styles.messagesScroll}
+        >
+          {messages.map((message, index) => {
+            const prev = messages[index - 1];
+            const showDate =
+              !prev ||
+              new Date(message.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+            const isOwn = message.senderName === session?.name;
+            const isAdmin = message.senderRole === "admin";
+            const attachmentUrl = resolveAssetUrl(message.attachmentUrl);
+
+            return (
+              <React.Fragment key={message.id}>
+                {showDate && <DateSeparator label={formatDateLabel(message.createdAt)} />}
+                <View style={[styles.row, isOwn ? styles.rowRight : styles.rowLeft]}>
                   <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
                     {!isOwn ? (
                       <Text style={[styles.sender, isAdmin ? styles.senderAdmin : null]}>
                         {isAdmin ? `${message.senderName} (Admin)` : message.senderName}
                       </Text>
                     ) : null}
-                    {message.message ? renderLinkedText(message.message, styles.messageText, styles.messageLink) : null}
+                    {message.message
+                      ? renderLinkedText(message.message, styles.messageText, styles.messageLink)
+                      : null}
                     {message.attachmentUrl ? (
                       message.attachmentType === "image" ? (
                         <Pressable onPress={() => Linking.openURL(attachmentUrl)}>
@@ -190,84 +201,101 @@ export function StudentChatScreen() {
                         </Pressable>
                       )
                     ) : null}
-                    <Text style={styles.metaText}>
-                      {String(message.senderRole).toUpperCase()} • {formatTime(message.createdAt)}
-                    </Text>
+                    <Text style={styles.metaText}>{formatTime(message.createdAt)}</Text>
                   </View>
                 </View>
-              );
-            })}
-          </ScrollView>
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
 
-          <View style={styles.bottomArea}>
-            {attachment ? (
-              <View style={styles.attachmentPreview}>
-                <View style={styles.attachmentInfo}>
-                  <Ionicons color={colors.primary} name="attach-outline" size={18} />
-                  <Text numberOfLines={1} style={styles.attachmentName}>
-                    {attachment.name}
-                  </Text>
-                  <Text style={styles.attachmentSize}>{formatFileSize(attachment.size || 0)}</Text>
-                </View>
-                <Pressable onPress={() => setAttachment(null)}>
-                  <Ionicons color={colors.textMuted} name="close-circle" size={20} />
-                </Pressable>
+        {/* Composer — no absolute, flows below messages */}
+        <View style={styles.bottomArea}>
+          {attachment ? (
+            <View style={styles.attachmentPreview}>
+              <View style={styles.attachmentInfo}>
+                <Ionicons color={colors.primary} name="attach-outline" size={18} />
+                <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
+                <Text style={styles.attachmentSize}>{formatFileSize(attachment.size || 0)}</Text>
               </View>
-            ) : null}
-
-            <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-              <Pressable
-                disabled={studentData?.student?.chatEnabled === false}
-                onPress={handlePickAttachment}
-                style={styles.attachButton}
-              >
-                <Ionicons color={colors.primary} name="attach" size={20} />
-              </Pressable>
-              <TextInput
-                editable={studentData?.student?.chatEnabled !== false}
-                onChangeText={setInput}
-                placeholder={studentData?.student?.chatEnabled === false ? "Chat access removed by admin" : "Message"}
-                placeholderTextColor="#8ea292"
-                style={styles.input}
-                value={input}
-              />
-              <Pressable
-                disabled={studentData?.student?.chatEnabled === false || sending}
-                onPress={handleSend}
-                style={[styles.sendButton, studentData?.student?.chatEnabled === false || sending ? styles.sendButtonDisabled : null]}
-              >
-                <Ionicons color="#fff" name="send" size={18} />
+              <Pressable onPress={() => setAttachment(null)}>
+                <Ionicons color={colors.textMuted} name="close-circle" size={20} />
               </Pressable>
             </View>
+          ) : null}
+
+          <View style={[styles.composerBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <Pressable
+              disabled={chatDisabled}
+              onPress={handlePickAttachment}
+              style={styles.attachButton}
+            >
+              <Ionicons color={colors.primary} name="attach" size={20} />
+            </Pressable>
+            <TextInput
+              editable={!chatDisabled}
+              multiline
+              onChangeText={setInput}
+              placeholder={chatDisabled ? "Chat access removed by admin" : "Message"}
+              placeholderTextColor="#8ea292"
+              style={styles.input}
+              value={input}
+            />
+            <Pressable
+              disabled={chatDisabled || sending}
+              onPress={handleSend}
+              style={[styles.sendButton, (chatDisabled || sending) && styles.sendButtonDisabled]}
+            >
+              <Ionicons color="#fff" name="send" size={18} />
+            </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardWrap: {
+  root: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  chatShell: {
-    flex: 1,
-    minHeight: 0,
     backgroundColor: "#e9f4ec",
-    position: "relative",
+  },
+  kav: {
+    flex: 1,
   },
   messagesScroll: {
     flex: 1,
   },
   messagesContent: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     gap: 2,
+  },
+  dateSep: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 10,
+    paddingHorizontal: 4,
+  },
+  dateLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#c3d9c8",
+  },
+  dateLabel: {
+    color: "#5a7a62",
+    fontSize: 11,
+    fontWeight: "600",
+    backgroundColor: "#d4ebd9",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   row: {
     width: "100%",
-    marginBottom: 10,
+    marginBottom: 4,
   },
   rowLeft: {
     alignItems: "flex-start",
@@ -276,19 +304,24 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   bubble: {
-    maxWidth: "82%",
-    borderRadius: 22,
+    maxWidth: "80%",
+    borderRadius: 18,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical: 8,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   bubbleOwn: {
     backgroundColor: "#dcf8c6",
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 4,
   },
   bubbleOther: {
     backgroundColor: "#ffffff",
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 4,
   },
   sender: {
     color: colors.primary,
@@ -299,32 +332,33 @@ const styles = StyleSheet.create({
     color: "#1f7a46",
   },
   messageText: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
+    color: "#111",
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   messageLink: {
     color: "#2563eb",
+    textDecorationLine: "underline",
   },
   metaText: {
-    color: colors.textMuted,
-    fontSize: 11,
+    color: "#8ea292",
+    fontSize: 10,
     alignSelf: "flex-end",
   },
   imageAttachment: {
-    width: 220,
-    height: 180,
-    borderRadius: 16,
+    width: 210,
+    height: 170,
+    borderRadius: 14,
     backgroundColor: "#d9e8dc",
   },
   fileAttachment: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 14,
-    backgroundColor: "#f3f7f4",
+    borderRadius: 12,
+    backgroundColor: "#f0f7f2",
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignSelf: "flex-start",
   },
   fileAttachmentText: {
@@ -333,20 +367,20 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textDecorationLine: "underline",
   },
+  bottomArea: {
+    backgroundColor: "#edf7ef",
+    borderTopWidth: 1,
+    borderTopColor: "#c8e6cc",
+  },
   attachmentPreview: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fdfefe",
+    backgroundColor: "#f5fbf6",
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  bottomArea: {
-    backgroundColor: "#edf7ef",
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#d4ebd9",
   },
   attachmentInfo: {
     flexDirection: "row",
@@ -365,38 +399,42 @@ const styles = StyleSheet.create({
   },
   composerBar: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#edf7ef",
-    paddingHorizontal: 12,
-    paddingTop: 6,
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 8,
   },
   attachButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff",
+    marginBottom: 3,
   },
   input: {
     flex: 1,
-    minHeight: 46,
-    maxHeight: 100,
-    borderRadius: 22,
+    minHeight: 40,
+    maxHeight: 110,
+    borderRadius: 20,
     backgroundColor: "#ffffff",
     paddingHorizontal: 14,
-    color: colors.text,
+    paddingTop: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
+    color: "#111",
+    fontSize: 15,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 3,
   },
   sendButtonDisabled: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
 });
