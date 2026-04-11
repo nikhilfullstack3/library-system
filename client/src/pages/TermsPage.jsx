@@ -9,7 +9,7 @@ const sections = [
     icon: BookOpen,
     title: "1. About the Service",
     content: [
-      "This Library Management System ("Service") is a software platform that allows library operators ("Library Admins") to manage students, seats, attendance, payments, documents, and staff across one or more reading-room libraries.",
+      'This Library Management System ("Service") is a software platform that allows library operators ("Library Admins") to manage students, seats, attendance, payments, documents, and staff across one or more reading-room libraries.',
       "By registering a library, logging in as staff, or logging in as a student, you agree to be bound by these Terms and Conditions. If you do not agree, do not use the Service.",
     ],
   },
@@ -56,7 +56,7 @@ const sections = [
     icon: AlertTriangle,
     title: "6. Limitation of Liability",
     content: [
-      "The Service is provided "as is" without warranties of any kind, express or implied, including warranties of merchantability, fitness for a particular purpose, or uninterrupted availability.",
+      'The Service is provided "as is" without warranties of any kind, express or implied, including warranties of merchantability, fitness for a particular purpose, or uninterrupted availability.',
       "To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of or inability to use the Service, including loss of data or revenue.",
       "Our total aggregate liability for any claim arising under these Terms shall not exceed the greater of (a) the fees you paid us in the 3 months preceding the claim, or (b) USD 50.",
     ],
