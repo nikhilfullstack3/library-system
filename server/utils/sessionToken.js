@@ -1,6 +1,9 @@
 const crypto = require("crypto");
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "library-system-dev-secret";
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+  throw new Error("SESSION_SECRET environment variable is required");
+}
 
 function encodeBase64Url(value) {
   return Buffer.from(value).toString("base64url");

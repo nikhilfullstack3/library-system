@@ -1,0 +1,8 @@
+node_modules
+uploads
+.env
+.env.*
+test
+scripts
+*.log
+npm-debug.log*

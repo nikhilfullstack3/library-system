@@ -20,7 +20,10 @@ const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 const DASHBOARD_PREVIEW_LIMIT = 12;
 const CHAT_MESSAGE_LIMIT = 100;
-const QR_SECRET = process.env.QR_SECRET || process.env.SESSION_SECRET || "library-system-qr-secret";
+const QR_SECRET = process.env.QR_SECRET || process.env.SESSION_SECRET;
+if (!QR_SECRET) {
+  throw new Error("QR_SECRET or SESSION_SECRET environment variable is required");
+}
 
 function toDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);

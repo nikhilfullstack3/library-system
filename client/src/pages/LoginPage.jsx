@@ -1,6 +1,6 @@
 import { BookOpenCheck, Eye, EyeOff, GraduationCap, ShieldCheck, Sparkles, SquareLibrary, ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
@@ -19,7 +19,7 @@ export function LoginPage() {
 
     try {
       const session = await login(role, email, password);
-      navigate(session.role === "student" ? "/student" : session.role === "super_admin" ? "/super-admin" : "/librarian");
+      navigate(session.role === "student" ? "/student" : "/librarian");
     } catch (error) {
       setAuthError(error.message || "Unable to login");
     } finally {
@@ -89,11 +89,10 @@ export function LoginPage() {
 
             <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
               {/* Role tabs */}
-              <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100/80 p-1">
+              <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/80 p-1">
                 {[
                   { key: "librarian", label: "Librarian" },
                   { key: "student", label: "Student" },
-                  { key: "super_admin", label: "Admin" },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -166,16 +165,12 @@ export function LoginPage() {
               </div>
             ) : null}
 
-            {/* Demo credentials */}
-            <div className="mt-6 rounded-2xl border border-slate-200/60 bg-gradient-to-br from-slate-50 to-white p-4 text-xs text-slate-600">
-              <p className="mb-1.5 font-bold uppercase tracking-wider text-slate-500">Demo Access</p>
-              <p>
-                <span className="font-bold text-slate-800">Librarian:</span> admin@library.com / admin123
-              </p>
-              <p className="mt-0.5">
-                <span className="font-bold text-slate-800">Super Admin:</span> superadmin@library.com / super123
-              </p>
-            </div>
+            <p className="mt-6 text-center text-xs text-slate-400">
+              By signing in you agree to our{" "}
+              <Link to="/terms" className="font-semibold text-emerald-600 hover:text-teal-700 underline underline-offset-2">
+                Terms &amp; Conditions
+              </Link>
+            </p>
           </div>
         </div>
       </div>
