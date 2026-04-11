@@ -9,7 +9,8 @@ echo "=== Backend deploy started ==="
 cd "$APP_DIR"
 
 echo "[1/3] Pulling latest code..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 echo "[2/3] Installing server dependencies..."
 cd "$APP_DIR/server"
