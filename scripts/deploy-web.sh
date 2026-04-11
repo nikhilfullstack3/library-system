@@ -10,7 +10,7 @@ echo "=== Web client deploy started ==="
 cd "$APP_DIR"
 
 echo "[1/3] Pulling latest code..."
-(flock -x 200; git fetch origin main && git reset --hard origin/main) 200>/var/lock/libhook-git.lock
+flock -x /var/lock/libhook-git.lock -c "git fetch origin main && git reset --hard origin/main"
 
 echo "[2/3] Installing client dependencies..."
 cd "$APP_DIR/client"
