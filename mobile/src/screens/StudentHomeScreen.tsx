@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   statusCardIn: { backgroundColor: "#059669" },
   statusCardOut: { backgroundColor: "#475569" },
   statusCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  statusSmall: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
+  statusSmall: { color: "rgba(255,255,255,0.95)", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
   statusTitle: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 4 },
   statusTimer: { color: "rgba(255,255,255,0.9)", fontSize: 14, fontFamily: "monospace", marginTop: 4 },
   statusIcon: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 10 },
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  infoLabel: { color: "#94a3b8", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  infoLabel: { color: "#475569", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
   infoValue: { fontSize: 14, fontWeight: "800" },
   seatChangeButton: {
     flexDirection: "row",

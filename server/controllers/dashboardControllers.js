@@ -572,7 +572,7 @@ async function getStudentDashboard(studentId) {
 
   const libraryId = student.libraryId._id || student.libraryId;
 
-  const [attendanceHistory, payments, documents, chatMessages, availableSeats, pendingSeatChangeRequest] = await Promise.all([
+  const [attendanceHistory, payments, documents, chatMessages, availableSeats, pendingSeatChangeRequest, totalAttendanceCount] = await Promise.all([
     Attendance.find({ studentId }).sort({ dateKey: -1, createdAt: -1 }).limit(60),
     Payment.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
     Document.find({ studentId }).populate("studentId").sort({ createdAt: -1 }).limit(24),
@@ -581,6 +581,7 @@ async function getStudentDashboard(studentId) {
       .limit(CHAT_MESSAGE_LIMIT),
     Seat.find({ libraryId, status: "empty" }).sort({ number: 1 }).lean(),
     SeatChangeRequest.findOne({ studentId, status: "pending" }).populate("requestedSeatId", "number label").lean(),
+    Attendance.countDocuments({ studentId }),
   ]);
 
   return {
@@ -606,7 +607,10 @@ async function getStudentDashboard(studentId) {
       documents: student.documents,
       hoursSpent: student.hoursSpent,
       currentlyInLibrary: student.currentlyInLibrary,
+      activeSessionStartedAt: attendanceHistory.find((item) => !item.checkOut)?.checkIn || null,
       chatEnabled: student.chatEnabled,
+      feeStatus: student.paymentStatus,
+      totalAttendance: totalAttendanceCount,
       library: student.libraryId,
     },
     seatNumber: student.seatNumber,

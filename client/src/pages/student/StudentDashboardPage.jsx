@@ -375,7 +375,7 @@ export function StudentDashboardPage() {
             <div className={`rounded-3xl p-5 text-white shadow-lg ${student?.currentlyInLibrary ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20" : "bg-gradient-to-br from-slate-500 to-slate-700 shadow-slate-500/20"}`}>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-white/70">
+                  <p className="text-xs font-bold uppercase tracking-widest text-white/95">
                     {student?.currentlyInLibrary ? "Currently Inside" : "Currently Outside"}
                   </p>
                   <p className="mt-1 text-2xl font-extrabold">
@@ -741,7 +741,7 @@ function InfoCard({ label, value, icon: Icon, accent, iconBg }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
           <p className={`mt-1 truncate text-sm font-extrabold ${accent}`}>{value}</p>
         </div>
         <div className={`shrink-0 rounded-xl p-2 ${iconBg}`}>
