@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nikhilfullstack3.librarysystemmobile"
+      "bundleIdentifier": "com.nikhilfullstack3.librarysystemmobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.nikhilfullstack3.librarysystemmobile",
