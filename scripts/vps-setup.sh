@@ -12,11 +12,15 @@ DOMAIN="libhook.cloud"
 API_DOMAIN="api.libhook.cloud"
 PORT=5001
 
-# ── Prompt for secrets ────────────────────────────────────────────────────────
+# ── Configuration (env vars override prompts) ─────────────────────────────────
 echo ""
 echo "=== Configuration ==="
-read -p "MongoDB URI (from Atlas): " MONGODB_URI
-read -p "Email for SSL certificate: " SSL_EMAIL
+if [ -z "${MONGODB_URI:-}" ]; then
+  read -p "MongoDB URI (from Atlas): " MONGODB_URI
+fi
+if [ -z "${SSL_EMAIL:-}" ]; then
+  read -p "Email for SSL certificate: " SSL_EMAIL
+fi
 
 echo ""
 echo "=== Starting setup ==="
@@ -173,12 +177,8 @@ nginx -t
 systemctl reload nginx
 
 # ── 13. SSL certificates ──────────────────────────────────────────────────────
-echo "[13/14] Obtaining SSL certificates..."
-certbot --nginx \
-  -d "$DOMAIN" -d "www.$DOMAIN" -d "$API_DOMAIN" \
-  --non-interactive --agree-tos \
-  --email "$SSL_EMAIL" \
-  --redirect
+echo "[13/14] Skipping SSL for now — run after DNS is propagated:"
+echo "  certbot --nginx -d $DOMAIN -d www.$DOMAIN -d $API_DOMAIN --non-interactive --agree-tos --email $SSL_EMAIL --redirect"
 
 # ── 14. Start PM2 ────────────────────────────────────────────────────────────
 echo "[14/14] Starting API with PM2..."
