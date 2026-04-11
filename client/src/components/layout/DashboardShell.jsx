@@ -115,14 +115,21 @@ export function DashboardShell() {
               <button
                 onClick={toggleMidnightJelly}
                 type="button"
-                className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition ${
-                  isMidnightJelly
-                    ? "border-violet-300/30 bg-gradient-to-r from-violet-500/25 to-cyan-400/20 text-violet-50"
-                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-violet-200 hover:text-violet-700"
-                }`}
+                aria-label="Toggle Midnight Jelly"
+                className="flex items-center gap-2 rounded-full px-1 py-1 transition"
               >
-                <MoonStar className="h-4 w-4" />
-                {isMidnightJelly ? "Midnight Jelly On" : "Midnight Jelly"}
+                <MoonStar className={`h-4 w-4 ${isMidnightJelly ? "text-violet-300" : "text-slate-400"}`} />
+                <span
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+                    isMidnightJelly ? "bg-linear-to-r from-violet-500 to-cyan-400" : "bg-slate-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
+                      isMidnightJelly ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </span>
               </button>
             </div>
 
