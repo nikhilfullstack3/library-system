@@ -163,7 +163,7 @@ export function ChatPage() {
   }
 
   return (
-    <div className={`flex h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-3xl border backdrop-blur-xl ${isMidnightJelly ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-slate-200/70 bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]"}`}>
+    <div className={`flex h-[calc(100dvh-15rem)] sm:h-[calc(100dvh-12rem)] md:h-[calc(100dvh-9rem)] flex-col overflow-hidden rounded-3xl border backdrop-blur-xl ${isMidnightJelly ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-slate-200/70 bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]"}`}>
       <div className={`flex items-center justify-between border-b px-5 py-4 ${isMidnightJelly ? "border-white/10 bg-gradient-to-r from-violet-500/10 via-transparent to-cyan-400/10" : "border-slate-200/60 bg-gradient-to-r from-emerald-50/60 via-white to-teal-50/60"}`}>
         <div className="flex items-center gap-3">
           <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-md ${isMidnightJelly ? "bg-gradient-to-br from-violet-500 to-cyan-400 shadow-violet-500/25" : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25"}`}>
@@ -215,7 +215,7 @@ export function ChatPage() {
                       {getInitials(message.senderName)}
                     </div>
                   )}
-                  <div className={`max-w-[78%] ${isOwnMessage ? "items-end" : "items-start"} flex flex-col`}>
+                  <div className={`max-w-[85%] sm:max-w-[78%] ${isOwnMessage ? "items-end" : "items-start"} flex flex-col`}>
                     {!isOwnMessage && (
                       <button
                         className={`mb-1 px-2 text-[10px] font-extrabold uppercase tracking-wider ${

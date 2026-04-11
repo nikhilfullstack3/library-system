@@ -23,6 +23,26 @@ export function DocumentsPage() {
         <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>Review uploaded student documents and verification status.</p>
       </CardHeader>
       <CardContent>
+        {/* Mobile cards */}
+        <div className="sm:hidden space-y-3">
+          {documentResponse.items.map((document) => (
+            <div key={document.id} className={`rounded-2xl border p-4 ${isMidnightJelly ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{document.student}</p>
+                <Badge variant={document.status === "verified" ? "success" : "warning"}>{document.status}</Badge>
+              </div>
+              <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
+                Seat {document.seat} · {document.document}
+              </p>
+              <p className={`mt-0.5 text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>
+                {new Date(document.uploadedAt).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -47,6 +67,7 @@ export function DocumentsPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
         <div className={`mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
           <span>
             Page {documentResponse.pagination?.page || 1} of {documentResponse.pagination?.totalPages || 1}
