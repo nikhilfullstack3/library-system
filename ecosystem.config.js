@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: "library-api",
-      script: "./server/index.js",
-      cwd: "/var/www/libhook",
+      script: "./index.js",
+      cwd: "/var/www/libhook/server",
       instances: 2,
       exec_mode: "cluster",
       env: {
