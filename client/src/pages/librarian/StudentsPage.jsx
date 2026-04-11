@@ -162,7 +162,7 @@ export function StudentsPage() {
             const liveTimer = getLiveTimer(student);
             const shiftWarning = getShiftWarning(student);
             return (
-              <div key={student.id} className={`rounded-2xl border p-4 ${shiftWarning ? (isMidnightJelly ? "border-rose-300/20 bg-rose-400/8" : "border-rose-200 bg-rose-50/60") : (isMidnightJelly ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50")}`}>
+              <div key={student.id} className={`rounded-2xl border p-4 ${shiftWarning ? (isMidnightJelly ? "border-rose-300/30 bg-rose-400/12" : "border-rose-200 bg-rose-50/60") : (isMidnightJelly ? "border-white/20 bg-white/8" : "border-slate-200 bg-slate-50/50")}`}>
                 <div className="flex items-start justify-between gap-2">
                   <button
                     className={`text-base font-semibold underline-offset-4 hover:underline text-left ${isMidnightJelly ? "text-cyan-200" : "text-sky-700"}`}
@@ -262,8 +262,8 @@ export function StudentsPage() {
                     {student.name}
                   </button>
                 </TableCell>
-                <TableCell>{student.seatNumber}</TableCell>
-                <TableCell>{student.phone}</TableCell>
+                <TableCell className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{student.seatNumber}</TableCell>
+                <TableCell className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{student.phone}</TableCell>
                 <TableCell>
                   <div className={shiftWarning ? (isMidnightJelly ? "font-semibold text-rose-200" : "font-semibold text-rose-600") : isMidnightJelly ? "text-violet-100/85" : "text-slate-700"}>
                     {liveTimer || student.shiftTiming || student.shift || "-"}
