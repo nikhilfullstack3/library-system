@@ -14,7 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
 export function DashboardPage() {
-  const { libraryData, refreshLibraryData, resolveSeatChangeRequest, session, subscribeToLibraryEvents } = useAuth();
+  const { libraryData, refreshLibraryData, resolveSeatChangeRequest, subscribeToLibraryEvents } = useAuth();
   const { isMidnightJelly } = useTheme();
   const navigate = useNavigate();
   const [resolving, setResolving] = useState(null);
@@ -72,14 +72,6 @@ export function DashboardPage() {
           </h1>
           <p className={`mt-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
             Only the items that need action, plus quick links for the tasks you use most.
-          </p>
-        </div>
-        <div className={`rounded-2xl border px-4 py-3 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-slate-50"}`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${isMidnightJelly ? "text-violet-200/60" : "text-slate-400"}`}>
-            Signed in
-          </p>
-          <p className={`mt-1 text-sm font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-700"}`}>
-            {session?.name || "Library staff"}
           </p>
         </div>
       </div>
