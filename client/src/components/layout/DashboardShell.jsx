@@ -58,15 +58,15 @@ export function DashboardShell() {
   }, [location.pathname, location.search, navigate, searchTerm]);
 
   return (
-    <div className={`min-h-screen ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
-      <div className="flex min-h-screen">
+    <div className={`h-dvh flex flex-col ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
+      <div className="flex flex-1 overflow-hidden">
         <div className="hidden md:block">
           <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((current) => !current)} />
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <header
-            className={`sticky top-0 z-20 border-b backdrop-blur-2xl ${
+            className={`shrink-0 z-20 border-b backdrop-blur-2xl ${
               isMidnightJelly
                 ? "border-white/10 bg-[#120f23]/70"
                 : "border-slate-200/60 bg-white/70"
@@ -184,7 +184,7 @@ export function DashboardShell() {
             </div>
           </header>
 
-          <main className="px-4 py-6 sm:px-6 lg:px-8">
+          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
             <Outlet />
           </main>
         </div>
