@@ -330,7 +330,7 @@ export function ChatPage() {
                 onChange={(event) => setChatInput(event.target.value)}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Type a message…"
-                className={`flex h-11 flex-1 rounded-2xl border px-4 text-sm outline-none transition-all ${isMidnightJelly ? "border-white/10 bg-white/5 text-violet-50 placeholder:text-violet-100/45 focus:border-violet-300 focus:bg-white/10 focus:ring-4 focus:ring-violet-400/15" : "border-slate-200 bg-slate-50 placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"}`}
+                className={`h-11 min-w-0 flex-1 rounded-2xl border px-4 text-sm outline-none transition-all ${isMidnightJelly ? "border-white/10 bg-white/5 text-violet-50 placeholder:text-violet-100/45 focus:border-violet-300 focus:bg-white/10 focus:ring-4 focus:ring-violet-400/15" : "border-slate-200 bg-slate-50 placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"}`}
               />
               <button
                 type="submit"
