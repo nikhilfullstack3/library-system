@@ -6,17 +6,13 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "enableProguardInReleaseBuilds": true,
-        "enableShrinkResourcesInReleaseBuilds": true
+        "buildType": "apk"
       },
       "channel": "preview"
     },
     "production": {
       "android": {
-        "buildType": "app-bundle",
-        "enableProguardInReleaseBuilds": true,
-        "enableShrinkResourcesInReleaseBuilds": true
+        "buildType": "app-bundle"
       },
       "ios": {
         "simulator": false
