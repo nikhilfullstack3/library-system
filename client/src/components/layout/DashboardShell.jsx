@@ -1,4 +1,4 @@
-import { FileText, LayoutDashboard, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users } from "lucide-react";
+import { FileText, LayoutDashboard, Menu, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -17,13 +17,18 @@ const mobileLinks = [
 
 export function DashboardShell() {
   const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { libraryData } = useAuth();
   const { isMidnightJelly, toggleMidnightJelly } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const searchOriginRef = useRef("");
-  const mobileNavRef = useRef(null);
+
+  // Close drawer on route change
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -58,18 +63,10 @@ export function DashboardShell() {
     return () => window.clearTimeout(timeoutId);
   }, [location.pathname, location.search, navigate, searchTerm]);
 
-  useEffect(() => {
-    const container = mobileNavRef.current;
-    if (!container) return;
-    const active = container.querySelector("[data-active='true']");
-    if (active) {
-      active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
-  }, [location.pathname]);
-
   return (
     <div className={`h-dvh flex flex-col ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
       <div className="flex flex-1 overflow-hidden">
+        {/* Desktop sidebar */}
         <div className="hidden md:block">
           <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((current) => !current)} />
         </div>
@@ -82,7 +79,21 @@ export function DashboardShell() {
                 : "border-slate-200/60 bg-white/70"
             }`}
           >
-            <div className="flex items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+              {/* Hamburger — mobile only */}
+              <button
+                type="button"
+                aria-label="Open menu"
+                onClick={() => setDrawerOpen(true)}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition md:hidden ${
+                  isMidnightJelly
+                    ? "bg-white/10 text-violet-100 hover:bg-white/15"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
               <div className="min-w-0 flex-1">
                 <h1
                   className={`truncate font-display text-xl font-extrabold tracking-tight sm:text-2xl ${
@@ -143,6 +154,7 @@ export function DashboardShell() {
               </button>
             </div>
 
+            {/* Mobile search bar */}
             <div className="px-4 pb-3 sm:hidden">
               <div
                 className={`flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm ${
@@ -162,47 +174,88 @@ export function DashboardShell() {
                 />
               </div>
             </div>
-
-            <div className={`px-4 py-2.5 md:hidden ${isMidnightJelly ? "border-t border-white/10" : "border-t border-slate-200/60"}`}>
-              <div ref={mobileNavRef} className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {mobileLinks.map((link) => {
-                  const Icon = link.icon;
-
-                  return (
-                    <NavLink
-                      key={link.to}
-                      className={({ isActive }) =>
-                        `flex min-w-fit items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-bold transition ${
-                          isActive
-                            ? isMidnightJelly
-                              ? "bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-md shadow-violet-500/25"
-                              : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
-                            : isMidnightJelly
-                              ? "border border-white/10 bg-white/10 text-violet-100"
-                              : "border border-slate-200 bg-white/80 text-slate-600"
-                        }`
-                      }
-                      data-active={
-                        (link.to === "/librarian" ? location.pathname === "/librarian" : location.pathname.startsWith(link.to))
-                          ? "true"
-                          : undefined
-                      }
-                      end={link.to === "/librarian"}
-                      to={link.to}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {link.label}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            </div>
           </header>
 
           <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
             <Outlet />
           </main>
         </div>
+      </div>
+
+      {/* Mobile drawer backdrop */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Mobile slide-out drawer */}
+      <div
+        className={`fixed inset-y-0 right-0 z-40 flex w-72 flex-col transition-transform duration-300 ease-in-out md:hidden ${
+          drawerOpen ? "translate-x-0" : "translate-x-full"
+        } ${isMidnightJelly ? "bg-[#120f23]" : "bg-white"}`}
+      >
+        {/* Drawer header */}
+        <div className={`flex items-center justify-between border-b px-5 py-4 ${isMidnightJelly ? "border-white/10" : "border-slate-200"}`}>
+          <span className={`font-display text-base font-extrabold tracking-tight ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>
+            {libraryData?.library?.name || "Studyly Library"}
+          </span>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setDrawerOpen(false)}
+            className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
+              isMidnightJelly ? "text-violet-200 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="flex flex-col gap-1">
+            {mobileLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  end={link.to === "/librarian"}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition ${
+                      isActive
+                        ? isMidnightJelly
+                          ? "bg-linear-to-r from-violet-500/20 to-cyan-400/10 text-violet-100 shadow-sm"
+                          : "bg-linear-to-r from-emerald-50 to-teal-50 text-emerald-700"
+                        : isMidnightJelly
+                          ? "text-violet-200/70 hover:bg-white/8 hover:text-violet-100"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        isActive
+                          ? isMidnightJelly
+                            ? "bg-linear-to-br from-violet-500 to-cyan-400 text-white shadow-md shadow-violet-500/25"
+                            : "bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25"
+                          : isMidnightJelly
+                            ? "bg-white/8 text-violet-200/70"
+                            : "bg-slate-100 text-slate-500"
+                      }`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      {link.label}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   );
