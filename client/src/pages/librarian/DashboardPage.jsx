@@ -22,6 +22,8 @@ export function DashboardPage() {
 
   const stats = libraryData?.stats || {};
   const seatChangeRequests = libraryData?.seatChangeRequests || [];
+  const totalSeats = stats.totalSeats || (stats.occupiedSeats || 0) + (stats.emptySeats || 0) || 0;
+  const occupancyPercent = totalSeats > 0 ? Math.round(((stats.occupiedSeats || 0) / totalSeats) * 100) : 0;
 
   const attentionCount =
     seatChangeRequests.length +
@@ -53,6 +55,7 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      {/* Header */}
       <div
         className={`flex flex-col gap-4 rounded-3xl border p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between ${
           isMidnightJelly
@@ -81,6 +84,46 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* LIVE NOW pulse card */}
+      <section className={`rounded-3xl border p-6 shadow-sm ${isMidnightJelly ? "border-emerald-400/20 bg-emerald-400/5 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-emerald-200 bg-emerald-50"}`}>
+        <div className="mb-4 flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <p className={`text-[11px] font-extrabold uppercase tracking-[0.18em] ${isMidnightJelly ? "text-emerald-300" : "text-emerald-700"}`}>
+            Live Now
+          </p>
+        </div>
+
+        <div className="flex items-end gap-8">
+          <div>
+            <p className={`text-5xl font-extrabold leading-none ${isMidnightJelly ? "text-white" : "text-slate-900"}`}>
+              {stats.currentStudents || 0}
+            </p>
+            <p className={`mt-1 text-sm ${isMidnightJelly ? "text-emerald-300/80" : "text-emerald-700"}`}>students inside</p>
+          </div>
+          <div>
+            <p className={`text-3xl font-extrabold leading-none ${isMidnightJelly ? "text-white" : "text-slate-900"}`}>
+              {stats.occupiedSeats || 0}
+              <span className={`text-xl font-bold ${isMidnightJelly ? "text-white/40" : "text-slate-400"}`}>/{totalSeats}</span>
+            </p>
+            <p className={`mt-1 text-sm ${isMidnightJelly ? "text-emerald-300/80" : "text-emerald-700"}`}>seats filled</p>
+          </div>
+        </div>
+
+        <div className={`mt-4 h-2 overflow-hidden rounded-full ${isMidnightJelly ? "bg-white/10" : "bg-emerald-200/60"}`}>
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${isMidnightJelly ? "bg-emerald-400" : "bg-emerald-500"}`}
+            style={{ width: `${Math.min(occupancyPercent, 100)}%` }}
+          />
+        </div>
+        <p className={`mt-2 text-xs ${isMidnightJelly ? "text-white/40" : "text-emerald-600/70"}`}>
+          {occupancyPercent}% occupancy · {stats.emptySeats || 0} seats available
+        </p>
+      </section>
+
+      {/* Needs Your Attention */}
       <section className={`rounded-3xl border p-6 shadow-sm ${isMidnightJelly ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-slate-200 bg-white"}`}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className={`text-base font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Needs Your Attention</h2>

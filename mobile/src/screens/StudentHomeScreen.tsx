@@ -14,7 +14,22 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { colors } from "../theme/colors";
+
+const dark = {
+  background: "#0d0d1a",
+  surface: "#1a1a2e",
+  surfaceMuted: "#16162a",
+  border: "#2d2d44",
+  primary: "#34d399",
+  primarySoft: "#34d39915",
+  text: "#f1f5f9",
+  textMuted: "#94a3b8",
+  warning: "#fbbf24",
+  danger: "#f87171",
+  success: "#34d399",
+};
 
 const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
@@ -57,6 +72,8 @@ function getShiftWarning(student: any) {
 
 export function StudentHomeScreen() {
   const { refreshStudentData, requestSeatChange, session, studentData, subscribeToLibraryEvents } = useAuth();
+  const { isDark } = useTheme();
+  const c = isDark ? dark : colors;
   const insets = useSafeAreaInsets();
   const [, setTimerTick] = useState(0);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
@@ -111,22 +128,22 @@ export function StudentHomeScreen() {
 
   return (
     <ScrollView
-      style={styles.scroll}
+      style={[styles.scroll, { backgroundColor: c.background }]}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Shift warning */}
       {shiftWarning ? (
-        <View style={styles.warningBanner}>
-          <Ionicons color="#dc2626" name="warning-outline" size={16} />
-          <Text style={styles.warningText}>{shiftWarning}</Text>
+        <View style={[styles.warningBanner, isDark && { backgroundColor: "#3b0f0f", borderColor: "#7f1d1d" }]}>
+          <Ionicons color={isDark ? "#f87171" : "#dc2626"} name="warning-outline" size={16} />
+          <Text style={[styles.warningText, isDark && { color: "#f87171" }]}>{shiftWarning}</Text>
         </View>
       ) : null}
 
       {/* Seat change pending */}
       {pendingRequest ? (
-        <View style={styles.pendingBanner}>
-          <Text style={styles.pendingText}>
+        <View style={[styles.pendingBanner, isDark && { backgroundColor: "#2d1a00", borderColor: "#78350f" }]}>
+          <Text style={[styles.pendingText, isDark && { color: "#fbbf24" }]}>
             <Text style={{ fontWeight: "700" }}>Seat change pending: </Text>
             You requested Seat {pendingRequest.requestedSeatNumber}. Awaiting approval.
           </Text>
@@ -134,7 +151,7 @@ export function StudentHomeScreen() {
       ) : null}
 
       {/* Status card */}
-      <View style={[styles.statusCard, isIn ? styles.statusCardIn : styles.statusCardOut]}>
+      <View style={[styles.statusCard, isIn ? styles.statusCardIn : [styles.statusCardOut, isDark && { backgroundColor: "#1e293b" }]]}>
         <View style={styles.statusCardInner}>
           <View>
             <Text style={styles.statusSmall}>{isIn ? "Currently Inside" : "Currently Outside"}</Text>
@@ -167,25 +184,33 @@ export function StudentHomeScreen() {
           icon="bed-outline"
           label="Seat Number"
           value={student?.seatNumber ? `Seat ${student.seatNumber}` : "Not assigned"}
-          color="#059669"
+          color="#34d399"
+          isDark={isDark}
+          c={c}
         />
         <InfoCard
           icon="time-outline"
           label="Shift"
           value={student?.shiftTiming || student?.shift || "Full Day"}
-          color="#0284c7"
+          color="#38bdf8"
+          isDark={isDark}
+          c={c}
         />
         <InfoCard
           icon="calendar-outline"
           label="Attendance"
           value={student?.totalAttendance != null ? `${student.totalAttendance} days` : "—"}
-          color="#7c3aed"
+          color="#a78bfa"
+          isDark={isDark}
+          c={c}
         />
         <InfoCard
           icon="checkmark-circle-outline"
           label="Fee Status"
           value={student?.feeStatus || "—"}
-          color={student?.feeStatus === "paid" ? "#059669" : "#d97706"}
+          color={student?.feeStatus === "paid" ? "#34d399" : "#fbbf24"}
+          isDark={isDark}
+          c={c}
         />
       </View>
 
@@ -193,10 +218,10 @@ export function StudentHomeScreen() {
       {student?.seatNumber ? (
         <Pressable
           onPress={() => { setSeatModalOpen(true); setSeatNumberInput(""); setSeatError(""); }}
-          style={styles.seatChangeButton}
+          style={[styles.seatChangeButton, { borderColor: c.primary + "60", backgroundColor: c.surface }]}
         >
-          <Ionicons color={colors.primary} name="swap-horizontal-outline" size={18} />
-          <Text style={styles.seatChangeText}>
+          <Ionicons color={c.primary} name="swap-horizontal-outline" size={18} />
+          <Text style={[styles.seatChangeText, { color: c.primary }]}>
             {pendingRequest ? "Seat Change Pending…" : "Request Seat Change"}
           </Text>
         </Pressable>
@@ -210,8 +235,8 @@ export function StudentHomeScreen() {
         onRequestClose={() => setSeatModalOpen(false)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setSeatModalOpen(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modalHeader, { backgroundColor: c.primary === dark.primary ? "#065f46" : "#059669" }]}>
               <View style={styles.modalHeaderIcon}>
                 <Ionicons color="#fff" name="swap-horizontal-outline" size={22} />
               </View>
@@ -225,24 +250,24 @@ export function StudentHomeScreen() {
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.fieldLabel}>New seat number</Text>
+              <Text style={[styles.fieldLabel, { color: c.textMuted }]}>New seat number</Text>
               <TextInput
                 keyboardType="numeric"
                 autoFocus
                 placeholder="Enter seat number"
-                placeholderTextColor="#94a3b8"
-                style={styles.fieldInput}
+                placeholderTextColor={c.textMuted}
+                style={[styles.fieldInput, { borderColor: c.border, backgroundColor: c.surfaceMuted, color: c.text }]}
                 value={seatNumberInput}
                 onChangeText={(t) => { setSeatNumberInput(t); setSeatError(""); }}
               />
 
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Reason <Text style={{ color: "#94a3b8", fontWeight: "400" }}>(optional)</Text></Text>
+              <Text style={[styles.fieldLabel, { marginTop: 16, color: c.textMuted }]}>Reason <Text style={{ color: c.textMuted, fontWeight: "400" }}>(optional)</Text></Text>
               <TextInput
                 multiline
                 numberOfLines={3}
                 placeholder="e.g. better lighting, near window…"
-                placeholderTextColor="#94a3b8"
-                style={[styles.fieldInput, styles.fieldTextarea]}
+                placeholderTextColor={c.textMuted}
+                style={[styles.fieldInput, styles.fieldTextarea, { borderColor: c.border, backgroundColor: c.surfaceMuted, color: c.text }]}
                 value={seatReason}
                 onChangeText={setSeatReason}
               />
@@ -272,20 +297,20 @@ export function StudentHomeScreen() {
   );
 }
 
-function InfoCard({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
+function InfoCard({ icon, label, value, color, isDark, c }: { icon: string; label: string; value: string; color: string; isDark: boolean; c: typeof colors }) {
   return (
-    <View style={styles.infoCard}>
-      <View style={[styles.infoIcon, { backgroundColor: color + "20" }]}>
+    <View style={[styles.infoCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <View style={[styles.infoIcon, { backgroundColor: color + "22" }]}>
         <Ionicons color={color} name={icon as any} size={18} />
       </View>
-      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoLabel, { color: c.textMuted }]}>{label}</Text>
       <Text style={[styles.infoValue, { color }]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   warningBanner: {
     flexDirection: "row",

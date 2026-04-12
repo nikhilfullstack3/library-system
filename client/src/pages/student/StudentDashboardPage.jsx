@@ -1,4 +1,4 @@
-import { Armchair, CalendarCheck, MessageCircle, Home, Moon, Paperclip, Sun, UserRound, X, Clock, CheckCircle2, AlertCircle, ScanLine, Camera, LogIn, LogOut as LogOutIcon } from "lucide-react";
+import { Armchair, CalendarCheck, MessageCircle, Home, Moon, Paperclip, Send, Sun, UserRound, X, Clock, CheckCircle2, AlertCircle, ScanLine, Camera, LogIn, LogOut as LogOutIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsQR from "jsqr";
@@ -35,21 +35,24 @@ function resolveAssetUrl(url = "") {
   return `${API_ORIGIN}${url}`;
 }
 
-function renderLinkedMessage(text, isAdminMessage) {
+function renderLinkedMessage(text) {
   return text.split(URL_PATTERN).map((part, index) => {
     if (part.match(URL_PATTERN)) {
       return (
-        <a className="text-blue-400 underline underline-offset-4" href={part} key={`${part}-${index}`} rel="noreferrer" target="_blank">
+        <a className="underline underline-offset-4" href={part} key={`${part}-${index}`} rel="noreferrer" target="_blank">
           {part}
         </a>
       );
     }
-    return (
-      <span className={isAdminMessage ? "text-emerald-400" : ""} key={`${part}-${index}`}>
-        {part}
-      </span>
-    );
+    return <span key={`${part}-${index}`}>{part}</span>;
   });
+}
+
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function getShiftEndDate(student) {
@@ -508,114 +511,175 @@ export function StudentDashboardPage() {
 
           {/* ── CHAT TAB ── */}
           {activeTab === "chat" ? (
-            <div className={`flex h-full flex-col overflow-hidden pt-3 pb-4`}>
-              <div className={`flex flex-1 flex-col overflow-hidden rounded-3xl border shadow-sm ${
-                mj ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-white"
+            <div className="flex h-full flex-col overflow-hidden pt-3 pb-3">
+              <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border ${
+                mj
+                  ? "border-white/10 bg-white/10 shadow-[0_24px_80px_rgba(14,10,28,0.38)]"
+                  : "border-slate-200/70 bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]"
               }`}>
-                {/* Messages */}
-                <div className={`flex-1 overflow-y-auto p-4 ${mj ? "bg-slate-900" : "bg-slate-50"}`}>
-                  <div className="space-y-3 px-1 py-2">
-                    {chatMessages.length === 0 ? (
-                      <p className={`py-10 text-center text-sm ${mj ? "text-slate-500" : "text-slate-400"}`}>
-                        No messages yet. Say hello!
+                {/* Chat Header */}
+                <div className={`shrink-0 flex items-center justify-between border-b px-5 py-4 ${mj ? "border-white/10 bg-gradient-to-r from-violet-500/10 via-transparent to-cyan-400/10" : "border-slate-200/60 bg-gradient-to-r from-emerald-50/60 via-white to-teal-50/60"}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-md ${mj ? "bg-linear-to-br from-violet-500 to-cyan-400 shadow-violet-500/25" : "bg-linear-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25"}`}>
+                      <MessageCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className={`font-display text-base font-extrabold tracking-tight ${mj ? "text-violet-50" : "text-slate-900"}`}>Library Chat</h2>
+                      <p className={`text-xs font-medium ${mj ? "text-violet-100/70" : "text-slate-500"}`}>
+                        {chatMessages.length} {chatMessages.length === 1 ? "message" : "messages"}
                       </p>
-                    ) : null}
-                    {chatMessages.map((message) => {
-                      const isOwnMessage = message.senderName === session?.name;
-                      const isAdminMessage = message.senderRole === "admin";
-                      return (
-                        <div key={message.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={`max-w-[88%] rounded-[22px] px-4 py-3 shadow-sm sm:max-w-[80%] ${
-                              isOwnMessage
-                                ? mj
-                                  ? "rounded-br-md bg-emerald-700 text-white"
-                                  : "rounded-br-md bg-[#dcf8c6] text-slate-900"
-                                : mj
-                                  ? "rounded-bl-md border border-slate-700 bg-slate-800 text-slate-100"
-                                  : "rounded-bl-md border border-slate-200 bg-white text-slate-900"
-                            }`}
-                          >
-                            {!isOwnMessage ? (
-                              <p className={`text-xs font-semibold ${isAdminMessage ? (mj ? "text-emerald-400" : "text-emerald-600") : (mj ? "text-emerald-400" : "text-emerald-700")}`}>
-                                {getSenderLabel(message)}
-                              </p>
-                            ) : null}
-                            <p className={`mt-1.5 whitespace-pre-wrap text-sm leading-6 ${isAdminMessage ? (mj ? "text-emerald-400" : "text-emerald-700") : ""}`}>
-                              {renderLinkedMessage(message.message, isAdminMessage)}
-                            </p>
-                            {message.attachmentUrl ? (
-                              <div className="mt-3">
-                                {message.attachmentType === "image" ? (
-                                  <a href={resolveAssetUrl(message.attachmentUrl)} rel="noreferrer" target="_blank">
-                                    <img
-                                      alt={message.attachmentName || "Chat attachment"}
-                                      className={`max-h-56 rounded-2xl border object-cover ${mj ? "border-slate-600" : "border-slate-200"}`}
-                                      src={resolveAssetUrl(message.attachmentUrl)}
-                                    />
-                                  </a>
-                                ) : (
-                                  <a
-                                    className={`inline-flex rounded-xl border px-3 py-2 text-sm text-blue-400 underline underline-offset-4 ${mj ? "border-slate-600 bg-slate-700/50" : "border-emerald-100 bg-white/80"}`}
-                                    href={resolveAssetUrl(message.attachmentUrl)}
-                                    rel="noreferrer"
-                                    target="_blank"
-                                  >
-                                    {message.attachmentName || "Open attachment"}
-                                  </a>
-                                )}
-                              </div>
-                            ) : null}
-                            <div className={`mt-2 flex justify-end gap-2 text-[11px] ${mj ? "text-slate-500" : "text-slate-400"}`}>
-                              <span className="uppercase">{message.senderRole}</span>
-                              <span>{formatChatTime(message.createdAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div ref={chatBottomRef} />
+                    </div>
                   </div>
+                  <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest ${mj ? "bg-cyan-400/10 text-cyan-100" : "bg-emerald-50 text-emerald-700"}`}>
+                    <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${mj ? "bg-cyan-300" : "bg-emerald-500"}`} />
+                    Live
+                  </span>
+                </div>
+
+                {/* Messages */}
+                <div className={`min-h-0 flex-1 overflow-y-auto p-4 ${mj ? "bg-gradient-to-b from-[#140f24]/40 to-[#0a0913]/40" : "bg-gradient-to-b from-slate-50/60 to-white/40"}`}>
+                  {chatMessages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <div className={`flex h-16 w-16 items-center justify-center rounded-3xl ${mj ? "bg-violet-500/10" : "bg-emerald-50"}`}>
+                        <MessageCircle className={`h-7 w-7 ${mj ? "text-violet-200" : "text-emerald-500"}`} />
+                      </div>
+                      <p className={`mt-4 text-sm font-bold ${mj ? "text-violet-50" : "text-slate-700"}`}>No messages yet</p>
+                      <p className={`mt-1 text-xs ${mj ? "text-violet-100/60" : "text-slate-400"}`}>Start the conversation by sending a message below</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {chatMessages.map((message) => {
+                        const isOwnMessage = message.senderName === session?.name;
+                        const isAdminMessage = message.senderRole === "admin";
+                        return (
+                          <div key={message.id} className={`flex items-end gap-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                            {!isOwnMessage && (
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white shadow-sm ${
+                                isAdminMessage
+                                  ? mj ? "bg-linear-to-br from-fuchsia-500 to-violet-500" : "bg-linear-to-br from-amber-500 to-orange-600"
+                                  : mj ? "bg-linear-to-br from-slate-600 to-slate-800" : "bg-linear-to-br from-slate-500 to-slate-700"
+                              }`}>
+                                {getInitials(message.senderName)}
+                              </div>
+                            )}
+                            <div className={`max-w-[82%] sm:max-w-[75%] flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}>
+                              {!isOwnMessage && (
+                                <p className={`mb-1 px-2 text-[10px] font-extrabold uppercase tracking-wider ${
+                                  isAdminMessage ? (mj ? "text-fuchsia-200" : "text-amber-600") : (mj ? "text-violet-100/55" : "text-slate-500")
+                                }`}>
+                                  {getSenderLabel(message)}
+                                </p>
+                              )}
+                              <div className={`rounded-3xl px-4 py-2.5 shadow-sm ${
+                                isOwnMessage
+                                  ? mj
+                                    ? "rounded-br-md bg-linear-to-br from-violet-500 to-cyan-400 text-white shadow-violet-500/20"
+                                    : "rounded-br-md bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/20"
+                                  : mj
+                                    ? "rounded-bl-md border border-white/10 bg-white/10 text-violet-50"
+                                    : "rounded-bl-md border border-slate-200 bg-white text-slate-900"
+                              }`}>
+                                {message.message ? (
+                                  <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                                    {renderLinkedMessage(message.message)}
+                                  </p>
+                                ) : null}
+                                {message.attachmentUrl ? (
+                                  <div className={message.message ? "mt-2" : ""}>
+                                    {message.attachmentType === "image" ? (
+                                      <a href={resolveAssetUrl(message.attachmentUrl)} rel="noreferrer" target="_blank">
+                                        <img
+                                          alt={message.attachmentName || "Chat attachment"}
+                                          className="max-h-56 w-full rounded-2xl border border-white/20 object-cover"
+                                          src={resolveAssetUrl(message.attachmentUrl)}
+                                        />
+                                      </a>
+                                    ) : (
+                                      <a
+                                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${
+                                          isOwnMessage
+                                            ? "bg-white/20 text-white hover:bg-white/30"
+                                            : mj
+                                              ? "border border-white/10 bg-white/10 text-cyan-100 hover:bg-white/15"
+                                              : "border border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                        }`}
+                                        href={resolveAssetUrl(message.attachmentUrl)}
+                                        rel="noreferrer"
+                                        target="_blank"
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                        {message.attachmentName || "Open attachment"}
+                                      </a>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                              <span className={`mt-1 px-2 text-[10px] font-medium ${mj ? "text-violet-100/45" : "text-slate-400"}`}>
+                                {formatChatTime(message.createdAt)}
+                              </span>
+                            </div>
+                            {isOwnMessage && (
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-white shadow-sm ${
+                                mj ? "bg-linear-to-br from-violet-500 to-cyan-400" : "bg-linear-to-br from-emerald-500 to-teal-600"
+                              }`}>
+                                {getInitials(session?.name)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div ref={chatBottomRef} />
+                    </div>
+                  )}
                 </div>
 
                 {/* Input */}
-                <form
-                  className={`shrink-0 border-t p-3 ${mj ? "border-slate-700 bg-slate-800" : "border-slate-100 bg-[#edf7ef]"}`}
-                  onSubmit={handleSendMessage}
-                >
-                  <div className="flex items-center gap-2">
-                    <label className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition ${mj ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                      <Paperclip className="h-4 w-4" />
-                      <input className="hidden" type="file" onChange={(event) => setChatAttachment(event.target.files?.[0] || null)} />
-                    </label>
-                    <input
-                      className={`h-9 flex-1 rounded-full border px-4 text-sm outline-none transition focus:ring-2 focus:ring-emerald-400/40 disabled:opacity-50 ${
-                        mj
-                          ? "border-slate-600 bg-slate-700 text-white placeholder:text-slate-400 focus:border-emerald-500 focus:bg-slate-700"
-                          : "border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white"
-                      }`}
-                      placeholder={studentData?.student.chatEnabled ? "Type a message…" : "Chat access removed by admin"}
-                      disabled={!studentData?.student.chatEnabled}
-                      value={chatInput}
-                      onChange={(event) => setChatInput(event.target.value)}
-                    />
-                    <button
-                      type="submit"
-                      disabled={sending || !studentData?.student.chatEnabled}
-                      className="flex h-9 items-center rounded-full bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {sending ? "…" : "Send"}
-                    </button>
-                  </div>
+                <div className={`shrink-0 border-t px-4 py-3 backdrop-blur ${mj ? "border-white/10 bg-[#120f23]/70" : "border-slate-200/60 bg-white/80"}`}>
                   {!studentData?.student.chatEnabled ? (
-                    <p className="mt-2 text-xs text-rose-500">Admin has removed your ability to send messages in library chat.</p>
-                  ) : null}
-                  {chatAttachment ? (
-                    <p className={`mt-2 text-xs ${mj ? "text-slate-400" : "text-slate-500"}`}>
-                      Attached: {chatAttachment.name} · {formatFileSize(chatAttachment.size || 0)} · limit {formatFileSize(MAX_ATTACHMENT_SIZE)}
-                    </p>
-                  ) : null}
-                </form>
+                    <div className={`rounded-2xl px-4 py-3 text-center text-xs font-bold ${mj ? "bg-rose-400/10 text-rose-100" : "bg-rose-50 text-rose-600"}`}>
+                      Admin has removed your chat access.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSendMessage}>
+                      {chatAttachment && (
+                        <div className={`mb-3 flex items-center justify-between rounded-2xl border px-3 py-2 ${mj ? "border-cyan-300/20 bg-cyan-400/10" : "border-emerald-200 bg-emerald-50"}`}>
+                          <div className={`flex min-w-0 items-center gap-2 text-xs font-bold ${mj ? "text-cyan-100" : "text-emerald-700"}`}>
+                            <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{chatAttachment.name}</span>
+                            <span className={`shrink-0 ${mj ? "text-cyan-100/70" : "text-emerald-500"}`}>· {formatFileSize(chatAttachment.size || 0)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setChatAttachment(null)}
+                            className={`ml-2 shrink-0 rounded-lg p-1 ${mj ? "text-cyan-100 hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-100"}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <label className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl border transition ${mj ? "border-white/10 bg-white/10 text-violet-100/70 hover:border-violet-300/30 hover:bg-white/15 hover:text-violet-50" : "border-slate-200 bg-white text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"}`}>
+                          <Paperclip className="h-4 w-4" />
+                          <input className="hidden" type="file" onChange={(event) => setChatAttachment(event.target.files?.[0] || null)} />
+                        </label>
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(event) => setChatInput(event.target.value)}
+                          placeholder="Type a message…"
+                          className={`h-11 min-w-0 flex-1 rounded-2xl border px-4 text-sm outline-none transition-all ${mj ? "border-white/10 bg-white/5 text-violet-50 placeholder:text-violet-100/45 focus:border-violet-300 focus:bg-white/10 focus:ring-4 focus:ring-violet-400/15" : "border-slate-200 bg-slate-50 placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"}`}
+                        />
+                        <button
+                          type="submit"
+                          disabled={sending || (!chatInput.trim() && !chatAttachment)}
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-md transition-all disabled:opacity-50 disabled:shadow-none active:scale-95 ${mj ? "bg-linear-to-br from-violet-500 to-cyan-400 shadow-violet-500/25 hover:brightness-110 hover:shadow-lg hover:shadow-violet-500/35" : "bg-linear-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25 hover:from-emerald-600 hover:to-teal-700 hover:shadow-lg hover:shadow-emerald-500/35"}`}
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
             </div>
           ) : null}

@@ -1,17 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { AppButton, Card, Field, Heading } from "../src/components/ui";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { AppButton, Field } from "../src/components/ui";
 import { useAuth } from "../src/context/AuthContext";
 import { colors } from "../src/theme/colors";
 
@@ -22,8 +23,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [slowLogin, setSlowLogin] = useState(false);
-  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!booting && session) {
     return (
@@ -46,19 +45,13 @@ export default function LoginScreen() {
     }
 
     setSubmitting(true);
-    setSlowLogin(false);
-    slowTimerRef.current = setTimeout(() => setSlowLogin(true), 5000);
-
     try {
       await login(role, email.trim(), password);
     } catch (error: any) {
       const message = error?.message || "Unable to login";
       setAuthError(message);
-      Alert.alert("Login failed", message);
     } finally {
-      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       setSubmitting(false);
-      setSlowLogin(false);
     }
   }
 
@@ -75,31 +68,28 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Card style={styles.hero}>
-            <Heading
-              eyebrow="Library Study Room"
-              title="Mobile App"
-              subtitle="Students get chat and profile access. Librarians get dashboard, students, payments, and chat on mobile."
-            />
-          </Card>
+          {/* Brand card */}
+          <View style={styles.brandCard}>
+            <View style={styles.brandIcon}>
+              <Ionicons color="#fff" name="library-outline" size={28} />
+            </View>
+            <Text style={styles.brandTitle}>Welcome back</Text>
+            <Text style={styles.brandSub}>Sign in to continue to your dashboard</Text>
+          </View>
 
-          <Card>
+          {/* Login card */}
+          <View style={styles.card}>
+            {/* Role tabs */}
             <View style={styles.roleRow}>
-              <RoleButton active={role === "librarian"} label="Librarian" onPress={() => setRole("librarian")} />
-              <RoleButton active={role === "student"} label="Student" onPress={() => setRole("student")} />
+              <RoleButton active={role === "librarian"} label="Librarian" onPress={() => { setRole("librarian"); setAuthError(""); }} />
+              <RoleButton active={role === "student"} label="Student" onPress={() => { setRole("student"); setAuthError(""); }} />
             </View>
 
             <Field
               autoCapitalize="none"
               label={role === "student" ? "Email or Login ID" : "Email"}
               onChangeText={setEmail}
-              placeholder={
-                role === "student"
-                  ? "student@library.com"
-                  : role === "super_admin"
-                    ? "superadmin@library.com"
-                    : "admin@library.com"
-              }
+              placeholder={role === "student" ? "student email or login ID" : "you@example.com"}
               value={email}
             />
 
@@ -112,28 +102,33 @@ export default function LoginScreen() {
                 value={password}
               />
               <Pressable
-                onPress={() => setShowPassword((current) => !current)}
-                style={styles.showPasswordButton}
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeButton}
               >
-                <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"}</Text>
+                <Ionicons
+                  color={colors.textMuted}
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                />
               </Pressable>
             </View>
 
-            {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-
-            {slowLogin ? (
-              <Text style={styles.slowText}>Server is warming up, please wait…</Text>
+            {authError ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{authError}</Text>
+              </View>
             ) : null}
 
-            <AppButton label={submitting ? "Signing in..." : "Login"} onPress={handleLogin} />
+            <AppButton
+              label={submitting ? "Signing in..." : `Sign in as ${role === "student" ? "Student" : "Librarian"}`}
+              onPress={handleLogin}
+            />
 
-            <View style={styles.demoBlock}>
-              <Text style={styles.demoLabel}>Demo</Text>
-              <Text style={styles.demoText}>Admin: `admin@library.com` / `admin123`</Text>
-              <Text style={styles.demoText}>Super Admin: `superadmin@library.com` / `super123`</Text>
-              <Text style={styles.demoText}>Student: `student@library.com` / `student123`</Text>
-            </View>
-          </Card>
+            <Text style={styles.terms}>
+              By signing in you agree to our{" "}
+              <Text style={styles.termsLink}>Terms &amp; Conditions</Text>
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -162,12 +157,62 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: 16,
-    paddingTop: 28,
-    paddingHorizontal: 16,
+    paddingTop: 40,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  hero: {
-    backgroundColor: "#f6fbf7",
+  brandCard: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  brandIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  brandTitle: {
+    color: colors.text,
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  brandSub: {
+    color: colors.textMuted,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   roleRow: {
     flexDirection: "row",
@@ -177,45 +222,37 @@ const styles = StyleSheet.create({
   },
   passwordWrap: {
     position: "relative",
-    marginBottom: 20,
+    marginBottom: 4,
   },
-  showPasswordButton: {
+  eyeButton: {
     position: "absolute",
     right: 14,
     top: 36,
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
-  showPasswordText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
+  errorBox: {
+    backgroundColor: "#fee2e2",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 4,
   },
   errorText: {
-    color: colors.danger,
-    marginTop: -12,
-    marginBottom: 10,
+    color: "#dc2626",
     fontSize: 13,
+    fontWeight: "500",
   },
-  slowText: {
+  terms: {
     color: colors.textMuted,
-    fontSize: 13,
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  demoBlock: {
-    marginTop: 14,
-    gap: 4,
-  },
-  demoLabel: {
-    color: colors.primary,
-    fontWeight: "700",
     fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.3,
+    textAlign: "center",
+    marginTop: 8,
   },
-  demoText: {
-    color: colors.textMuted,
-    fontSize: 13,
+  termsLink: {
+    color: colors.primary,
+    fontWeight: "600",
   },
 });
