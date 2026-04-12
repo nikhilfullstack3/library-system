@@ -1,4 +1,4 @@
-import { FileText, LayoutDashboard, Menu, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users, X } from "lucide-react";
+import { BarChart3, FileText, LayoutDashboard, Menu, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -12,6 +12,7 @@ const mobileLinks = [
   { label: "Seats", to: "/librarian/seats", icon: Rows3 },
   { label: "Attendance", to: "/librarian/attendance", icon: SquareLibrary },
   { label: "Documents", to: "/librarian/documents", icon: FileText },
+  { label: "Analytics", to: "/librarian/analytics", icon: BarChart3 },
   { label: "Chat", to: "/librarian/chat", icon: MessageCircleMore },
 ];
 
@@ -104,7 +105,7 @@ export function DashboardShell() {
                 </h1>
               </div>
 
-              <div className="hidden flex-1 max-w-md sm:block">
+              <div className={`hidden flex-1 max-w-md sm:block ${location.pathname === "/librarian/chat" ? "invisible" : ""}`}>
                 <div
                   className={`flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm transition-all ${
                     isMidnightJelly
@@ -155,7 +156,7 @@ export function DashboardShell() {
             </div>
 
             {/* Mobile search bar */}
-            <div className="px-4 pb-3 sm:hidden">
+            <div className={`px-4 pb-3 sm:hidden ${location.pathname === "/librarian/chat" ? "hidden" : ""}`}>
               <div
                 className={`flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm ${
                   isMidnightJelly
@@ -176,7 +177,7 @@ export function DashboardShell() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+          <main className={`flex-1 overflow-y-auto ${location.pathname === "/librarian/chat" ? "p-0 overflow-hidden" : "px-4 py-6 sm:px-6 lg:px-8"}`}>
             <Outlet />
           </main>
         </div>
