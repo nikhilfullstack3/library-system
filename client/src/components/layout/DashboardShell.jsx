@@ -192,8 +192,8 @@ export function DashboardShell() {
 
       {/* Mobile slide-out drawer */}
       <div
-        className={`fixed inset-y-0 right-0 z-40 flex w-72 flex-col transition-transform duration-300 ease-in-out md:hidden ${
-          drawerOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col transition-transform duration-300 ease-in-out md:hidden ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
         } ${isMidnightJelly ? "bg-[#120f23]" : "bg-white"}`}
       >
         {/* Drawer header */}
