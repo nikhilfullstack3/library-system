@@ -123,7 +123,7 @@ export default function LibrarianDashboardScreen() {
       {/* ── Live Pulse ── */}
       <Pressable
         onPress={() => router.push("/(librarian)/seats" as never)}
-        style={({ pressed }) => pressed && { opacity: 0.85 }}
+        style={({ pressed }) => [{ cursor: "pointer" } as any, pressed && { opacity: 0.85 }]}
       >
         <Card style={styles.pulseCard}>
           <View style={styles.pulseHeader}>
