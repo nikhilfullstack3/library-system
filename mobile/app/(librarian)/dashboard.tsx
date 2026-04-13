@@ -123,49 +123,47 @@ export default function LibrarianDashboardScreen() {
       {/* ── Live Pulse ── */}
       <Pressable
         onPress={() => router.push("/(librarian)/seats" as never)}
-        style={({ pressed }) => [{ cursor: "pointer" } as any, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [styles.pulseCard, { cursor: "pointer" } as any, pressed && { opacity: 0.85 }]}
       >
-        <Card style={styles.pulseCard}>
-          <View style={styles.pulseHeader}>
-            <View style={styles.pulseDotWrap}>
-              <View style={styles.pulseDotOuter} />
-              <View style={styles.pulseDotInner} />
-            </View>
-            <Text style={styles.pulseLabel}>LIVE NOW</Text>
-            <Ionicons
-              name="chevron-forward"
-              size={14}
-              color={colors.primary}
-              style={{ marginLeft: "auto" }}
-            />
+        <View style={styles.pulseHeader}>
+          <View style={styles.pulseDotWrap}>
+            <View style={styles.pulseDotOuter} />
+            <View style={styles.pulseDotInner} />
           </View>
+          <Text style={styles.pulseLabel}>LIVE NOW</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color={colors.primary}
+            style={{ marginLeft: "auto" }}
+          />
+        </View>
 
-          <View style={styles.pulseNumbers}>
-            <View>
-              <Text style={styles.pulseBig}>{stats.currentStudents || 0}</Text>
-              <Text style={styles.pulseSub}>students inside</Text>
-            </View>
-            <View>
-              <Text style={styles.pulseMedium}>
-                {stats.occupiedSeats || 0}
-                <Text style={styles.pulseMuted}>/{totalSeats}</Text>
-              </Text>
-              <Text style={styles.pulseSub}>seats filled</Text>
-            </View>
+        <View style={styles.pulseNumbers}>
+          <View>
+            <Text style={styles.pulseBig}>{stats.currentStudents || 0}</Text>
+            <Text style={styles.pulseSub}>students inside</Text>
           </View>
+          <View>
+            <Text style={styles.pulseMedium}>
+              {stats.occupiedSeats || 0}
+              <Text style={styles.pulseMuted}>/{totalSeats}</Text>
+            </Text>
+            <Text style={styles.pulseSub}>seats filled</Text>
+          </View>
+        </View>
 
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${Math.min(occupancyPercent, 100)}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.pulseFooter}>
-            {occupancyPercent}% occupancy · {stats.emptySeats || 0} seats available
-          </Text>
-        </Card>
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${Math.min(occupancyPercent, 100)}%` },
+            ]}
+          />
+        </View>
+        <Text style={styles.pulseFooter}>
+          {occupancyPercent}% occupancy · {stats.emptySeats || 0} seats available
+        </Text>
       </Pressable>
 
       {/* ── Needs Attention ── */}
@@ -432,6 +430,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary + "30",
     borderWidth: 1,
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: "#1c402a",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 2,
   },
   pulseHeader: {
     flexDirection: "row",
