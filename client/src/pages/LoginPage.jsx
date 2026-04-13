@@ -171,6 +171,13 @@ export function LoginPage() {
                 Terms &amp; Conditions
               </Link>
             </p>
+
+            <p className="mt-3 text-center text-xs text-slate-400">
+              New here?{" "}
+              <Link to="/signup" className="font-semibold text-emerald-600 hover:text-teal-700 underline underline-offset-2">
+                Register your library
+              </Link>
+            </p>
           </div>
         </div>
       </div>

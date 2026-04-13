@@ -23,6 +23,7 @@ const SuperAdminRegistrationPage = lazy(() => import("./pages/super-admin/SuperA
 const StudentDashboardPage = lazy(() => import("./pages/student/StudentDashboardPage").then((module) => ({ default: module.StudentDashboardPage })));
 const StudentProfilePage = lazy(() => import("./pages/student/StudentProfilePage").then((module) => ({ default: module.StudentProfilePage })));
 const TermsPage = lazy(() => import("./pages/TermsPage").then((module) => ({ default: module.TermsPage })));
+const LibrarySignupPage = lazy(() => import("./pages/LibrarySignupPage").then((module) => ({ default: module.LibrarySignupPage })));
 
 function ProtectedRoute({ allow, children }) {
   const { session } = useAuth();
@@ -97,6 +98,7 @@ function AppRoutes() {
         />
 
         <Route element={<TermsPage />} path="/terms" />
+        <Route element={<LibrarySignupPage />} path="/signup" />
         <Route element={<Navigate replace to="/login" />} path="*" />
       </Routes>
     </Suspense>

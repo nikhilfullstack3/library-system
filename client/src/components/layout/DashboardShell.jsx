@@ -1,4 +1,4 @@
-import { BarChart3, FileText, LayoutDashboard, Menu, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users, X } from "lucide-react";
+import { BarChart3, FileText, LayoutDashboard, LogOut, Menu, MessageCircleMore, MoonStar, Rows3, Search, SquareLibrary, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -20,7 +20,7 @@ export function DashboardShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const { libraryData } = useAuth();
+  const { libraryData, logout, session } = useAuth();
   const { isMidnightJelly, toggleMidnightJelly } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -257,6 +257,24 @@ export function DashboardShell() {
             })}
           </div>
         </nav>
+
+        {/* Drawer footer — user info + logout */}
+        <div className={`border-t px-3 py-4 space-y-2 ${isMidnightJelly ? "border-white/10" : "border-slate-200"}`}>
+          {/* Logout row — Facebook style */}
+          <button
+            onClick={logout}
+            className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition active:scale-[0.98] ${
+              isMidnightJelly
+                ? "text-rose-300 hover:bg-white/8"
+                : "text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isMidnightJelly ? "bg-white/10" : "bg-slate-200"}`}>
+              <LogOut className={`h-4 w-4 ${isMidnightJelly ? "text-rose-300" : "text-slate-700"}`} />
+            </span>
+            Log out
+          </button>
+        </div>
       </div>
     </div>
   );

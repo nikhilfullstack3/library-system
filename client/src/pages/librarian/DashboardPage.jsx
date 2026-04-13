@@ -77,7 +77,7 @@ export function DashboardPage() {
       </div>
 
       {/* LIVE NOW pulse card */}
-      <section className={`rounded-3xl border p-6 shadow-sm ${isMidnightJelly ? "border-emerald-400/20 bg-emerald-400/5 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-emerald-200 bg-emerald-50"}`}>
+      <section onClick={() => navigate("/librarian/seats")} className={`cursor-pointer rounded-3xl border p-6 shadow-sm ${isMidnightJelly ? "border-emerald-400/20 bg-emerald-400/5 shadow-[0_24px_80px_rgba(14,10,28,0.38)]" : "border-emerald-200 bg-emerald-50"}`}>
         <div className="mb-4 flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
