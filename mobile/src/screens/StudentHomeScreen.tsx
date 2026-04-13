@@ -34,7 +34,7 @@ const dark = {
 const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
 function getAttendanceDisplay(student: any) {
-  if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt) {
+  if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt || student?.fullDay) {
     return student?.shiftTiming || student?.shift || "-";
   }
   const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
