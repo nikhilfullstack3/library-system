@@ -3,10 +3,11 @@ const Library = require("../models/Library");
 const { hashPassword } = require("../utils/password");
 const { createSessionToken } = require("../utils/sessionToken");
 const { buildLibraryDashboard, seedDemoStudents } = require("./dashboardControllers");
+const { sendWelcomeEmail } = require("../services/mailer");
 
 exports.registerLibrary = async (req, res) => {
   try {
-    const { name, email, password, libraryName, location, latitude, longitude } = req.body;
+    const { name, email, password, libraryName, phone, location, latitude, longitude } = req.body;
 
     if (!name || !email || !password || !libraryName) {
       return res.status(400).json({
@@ -37,11 +38,19 @@ exports.registerLibrary = async (req, res) => {
       email: normalizedEmail,
       password: await hashPassword(password),
       role: "admin",
+      phone: String(phone || "").trim(),
       libraryId: library._id,
     });
 
     await seedDemoStudents(library._id);
     const dashboard = await buildLibraryDashboard(library._id);
+
+    // Send welcome email (non-blocking — don't fail registration if email fails)
+    sendWelcomeEmail({
+      to: normalizedEmail,
+      librarianName: name.trim(),
+      libraryName: libraryName.trim(),
+    }).catch((err) => console.error("Welcome email failed:", err.message));
 
     const session = {
       role: "admin",

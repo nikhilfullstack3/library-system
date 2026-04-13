@@ -172,12 +172,19 @@ export function LoginPage() {
               </Link>
             </p>
 
-            <p className="mt-3 text-center text-xs text-slate-400">
-              New here?{" "}
-              <Link to="/signup" className="font-semibold text-emerald-600 hover:text-teal-700 underline underline-offset-2">
-                Register your library
-              </Link>
-            </p>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs text-slate-400">New here?</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <Link
+              to="/signup"
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 text-sm font-extrabold text-emerald-600 transition-all hover:bg-emerald-50 hover:text-teal-700 active:scale-[0.98]"
+            >
+              Register your library
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>

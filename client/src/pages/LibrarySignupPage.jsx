@@ -1,9 +1,18 @@
-import { ArrowRight, Eye, EyeOff, Sparkles, SquareLibrary } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Eye, EyeOff, Loader2, MapPin, Sparkles, SquareLibrary } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const initialForm = { name: "", email: "", password: "", libraryName: "" };
+const initialForm = {
+  name: "",
+  email: "",
+  password: "",
+  libraryName: "",
+  phone: "",
+  location: "",
+  latitude: null,
+  longitude: null,
+};
 
 export function LibrarySignupPage() {
   const navigate = useNavigate();
@@ -12,15 +21,60 @@ export function LibrarySignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState("");
 
   function set(field) {
-    return (e) => { setForm((f) => ({ ...f, [field]: e.target.value })); setError(""); };
+    return (e) => {
+      setForm((f) => ({ ...f, [field]: e.target.value }));
+      setError("");
+    };
   }
+
+  async function detectLocation() {
+    if (!navigator.geolocation) {
+      setLocError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setLocating(true);
+    setLocError("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const address = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          setForm((f) => ({ ...f, location: address, latitude, longitude }));
+        } catch {
+          setForm((f) => ({ ...f, location: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`, latitude, longitude }));
+        }
+        setLocating(false);
+      },
+      (err) => {
+        setLocError(err.code === 1 ? "Location permission denied." : "Unable to detect location.");
+        setLocating(false);
+      },
+      { timeout: 10000 }
+    );
+  }
+
+  // Auto-detect on mount
+  useEffect(() => {
+    detectLocation();
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.password.trim() || !form.libraryName.trim()) {
-      setError("Please fill in all fields.");
+      setError("Please fill in all required fields.");
+      return;
+    }
+    if (!form.phone.trim()) {
+      setError("Mobile number is required.");
       return;
     }
     setSubmitting(true);
@@ -57,26 +111,87 @@ export function LibrarySignupPage() {
             </div>
 
             <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
-              {[
-                { label: "Your name", field: "name", placeholder: "Nikhil Sharma", type: "text" },
-                { label: "Email", field: "email", placeholder: "admin@library.com", type: "email" },
-                { label: "Library name", field: "libraryName", placeholder: "Scholars Reading Hall", type: "text" },
-              ].map(({ label, field, placeholder, type }) => (
-                <div key={field}>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600">{label}</label>
-                  <input
-                    type={type}
-                    value={form[field]}
-                    onChange={set(field)}
-                    placeholder={placeholder}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                  />
+              {/* Name */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Your name <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={set("name")}
+                  placeholder="Nikhil Sharma"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Email <span className="text-rose-500">*</span></label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={set("email")}
+                  placeholder="admin@library.com"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+              </div>
+
+              {/* Mobile number */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Mobile number <span className="text-rose-500">*</span></label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={set("phone")}
+                  placeholder="+91 98765 43210"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+              </div>
+
+              {/* Library name */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Library name <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  value={form.libraryName}
+                  onChange={set("libraryName")}
+                  placeholder="Scholars Reading Hall"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Library location</label>
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    disabled={locating}
+                    className="flex items-center gap-1 rounded-xl px-2 py-1 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    {locating ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
+                    {locating ? "Detecting…" : "Auto-detect"}
+                  </button>
                 </div>
-              ))}
+                <textarea
+                  value={form.location}
+                  onChange={set("location")}
+                  placeholder={locating ? "Detecting your location…" : "123 Main St, City, State"}
+                  rows={2}
+                  className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white/60 px-4 py-3 text-sm outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                />
+                {locError && <p className="mt-1 text-xs text-rose-500">{locError}</p>}
+                {form.latitude && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                    <MapPin className="h-3 w-3" />
+                    GPS: {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
+                  </p>
+                )}
+              </div>
 
               {/* Password */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Password</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">Password <span className="text-rose-500">*</span></label>
                 <div className="relative mt-2">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -100,7 +215,12 @@ export function LibrarySignupPage() {
                 disabled={submitting}
                 className="group flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-extrabold tracking-tight text-white shadow-lg shadow-emerald-500/30 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98] disabled:opacity-60"
               >
-                {submitting ? "Creating..." : (
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating…
+                  </>
+                ) : (
                   <>
                     Create library
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -109,11 +229,11 @@ export function LibrarySignupPage() {
               </button>
             </form>
 
-            {error ? (
+            {error && (
               <div className="mt-4 rounded-2xl border border-rose-200/60 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                 {error}
               </div>
-            ) : null}
+            )}
 
             <p className="mt-6 text-center text-xs text-slate-400">
               Already have an account?{" "}
