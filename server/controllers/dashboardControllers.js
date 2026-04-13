@@ -2394,6 +2394,35 @@ exports.getAnalytics = async (req, res) => {
   }
 };
 
+exports.autoFreeSeat = async (req, res) => {
+  try {
+    const { libraryId, studentId } = req.params;
+
+    const student = await Student.findOne({ _id: studentId, libraryId });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const seat = await Seat.findOne({ libraryId, studentId: student._id });
+    if (!seat) {
+      return res.json({ message: "No seat to free" });
+    }
+
+    seat.studentId = null;
+    seat.status = "empty";
+    await seat.save();
+
+    student.seatNumber = "";
+    await student.save();
+
+    emitLibraryEvent(libraryId, "seat:auto-freed", { studentId, seatId: seat._id });
+
+    return res.json({ message: "Seat freed" });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to free seat", error: error.message });
+  }
+};
+
 exports.seedAnalyticsDemo = async (req, res) => {
   try {
     const { libraryId } = req.params;

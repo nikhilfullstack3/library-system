@@ -71,7 +71,7 @@ function getShiftWarning(student: any) {
 }
 
 export function StudentHomeScreen() {
-  const { refreshStudentData, requestSeatChange, session, studentData, subscribeToLibraryEvents } = useAuth();
+  const { autoFreeSeat, refreshStudentData, requestSeatChange, session, studentData, subscribeToLibraryEvents } = useAuth();
   const { isDark } = useTheme();
   const c = isDark ? dark : colors;
   const insets = useSafeAreaInsets();
@@ -81,6 +81,7 @@ export function StudentHomeScreen() {
   const [seatReason, setSeatReason] = useState("");
   const [seatSubmitting, setSeatSubmitting] = useState(false);
   const [seatError, setSeatError] = useState("");
+  const autoFreedRef = useRef(false);
 
   useEffect(() => {
     refreshStudentData().catch(() => {});
@@ -121,8 +122,35 @@ export function StudentHomeScreen() {
   }
 
   const student = studentData?.student;
+
+  // Auto-free seat 1 hour past shift end if student hasn't checked out
+  useEffect(() => {
+    if (!student?.currentlyInLibrary || student?.fullDay || autoFreedRef.current) return;
+    const shiftEndDate = getShiftEndDate(student);
+    if (!shiftEndDate) return;
+    const autoFreeAt = shiftEndDate.getTime() + 60 * 60 * 1000;
+    const delay = autoFreeAt - Date.now();
+    if (delay <= 0) {
+      autoFreedRef.current = true;
+      autoFreeSeat().catch(() => {});
+      return;
+    }
+    const timeout = setTimeout(() => {
+      autoFreedRef.current = true;
+      autoFreeSeat().catch(() => {});
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [autoFreeSeat, student]);
+
   const attendanceDisplay = getAttendanceDisplay(student);
   const shiftWarning = getShiftWarning(student);
+  const timerIsRed = (() => {
+    if (!student?.currentlyInLibrary || student?.fullDay) return false;
+    const shiftEndDate = getShiftEndDate(student);
+    if (!shiftEndDate) return false;
+    const remainingMs = shiftEndDate.getTime() - Date.now();
+    return remainingMs <= 15 * 60 * 1000;
+  })();
   const isIn = Boolean(student?.currentlyInLibrary);
   const pendingRequest = studentData?.pendingSeatChangeRequest;
 
@@ -157,7 +185,7 @@ export function StudentHomeScreen() {
             <Text style={styles.statusSmall}>{isIn ? "Currently Inside" : "Currently Outside"}</Text>
             <Text style={styles.statusTitle}>{isIn ? "Checked In" : "Checked Out"}</Text>
             {isIn ? (
-              <Text style={styles.statusTimer}>{attendanceDisplay}</Text>
+              <Text style={[styles.statusTimer, timerIsRed && styles.statusTimerRed]}>{attendanceDisplay}</Text>
             ) : null}
           </View>
           <View style={styles.statusIcon}>
@@ -346,6 +374,7 @@ const styles = StyleSheet.create({
   statusSmall: { color: "rgba(255,255,255,0.95)", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
   statusTitle: { color: "#fff", fontSize: 24, fontWeight: "800", marginTop: 4 },
   statusTimer: { color: "rgba(255,255,255,0.9)", fontSize: 14, fontFamily: "monospace", marginTop: 4 },
+  statusTimerRed: { color: "#fca5a5", fontWeight: "800" },
   statusIcon: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 10 },
   checkButton: {
     flexDirection: "row",

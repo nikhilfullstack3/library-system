@@ -31,6 +31,7 @@ const {
   resolveSeatChangeRequest,
   getAnalytics,
   seedAnalyticsDemo,
+  autoFreeSeat,
 } = require("../controllers/dashboardControllers");
 const { loginLibrarian, loginStudent, loginSuperAdmin } = require("../controllers/loginControllers");
 const { requireAuth, requireRole, requireStudentSelf } = require("../middleware/auth");
@@ -102,6 +103,7 @@ router.post("/libraries/:libraryId/chat", requireAuth, upload.single("attachment
 router.patch("/libraries/:libraryId/chat/access/:participantType/:participantId", requireAuth, requireRole("admin", "super_admin"), updateChatAccess);
 router.post("/libraries/:libraryId/librarians", requireAuth, requireRole("admin", "super_admin"), registerLibrarian);
 router.post("/libraries/:libraryId/students/:studentId/seat-change-request", requireAuth, requireRole("student"), requestSeatChange);
+router.post("/libraries/:libraryId/students/:studentId/auto-free-seat", requireAuth, requireStudentSelf, autoFreeSeat);
 router.post("/libraries/:libraryId/seat-change-requests/:requestId/resolve", requireAuth, requireRole("admin", "librarian", "super_admin"), resolveSeatChangeRequest);
 router.get("/libraries/:libraryId/analytics", requireAuth, requireRole("admin", "librarian", "super_admin"), getAnalytics);
 router.post("/libraries/:libraryId/analytics/seed-demo", requireAuth, requireRole("admin", "super_admin"), seedAnalyticsDemo);

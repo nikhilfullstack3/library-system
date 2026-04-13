@@ -41,6 +41,7 @@ type AuthContextValue = {
   fetchAttendanceQrToken: () => Promise<any>;
   sendChatMessage: (payload: { message: string; tag?: string; attachment?: { uri: string; name: string; mimeType?: string } | null }) => Promise<any>;
   assignSeat: (seatId: string, phone: string) => Promise<any>;
+  autoFreeSeat: () => Promise<any>;
   requestSeatChange: (seatNumber: string, reason: string) => Promise<any>;
   resolveSeatChangeRequest: (requestId: string, action: string) => Promise<any>;
   scanAttendanceQr: (token: string) => Promise<any>;
@@ -341,6 +342,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data;
   }, [session?.libraryId, refreshLibraryData]);
 
+  const autoFreeSeat = useCallback(async () => {
+    const data = await apiRequest(`/auth/libraries/${session?.libraryId}/students/${session?.studentId}/auto-free-seat`, {
+      method: "POST",
+    });
+    await refreshStudentData(session?.studentId);
+    return data;
+  }, [session?.libraryId, session?.studentId, refreshStudentData]);
+
   const requestSeatChange = useCallback(async (seatNumber: string, reason: string) => {
     const data = await apiRequest(`/auth/libraries/${session?.libraryId}/students/${session?.studentId}/seat-change-request`, {
       method: "POST",
@@ -451,6 +460,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshSuperAdminData,
       refreshStudentData,
       assignSeat,
+      autoFreeSeat,
       requestSeatChange,
       resolveSeatChangeRequest,
       session,
