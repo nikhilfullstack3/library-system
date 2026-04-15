@@ -55,18 +55,6 @@ function getShiftEndDate(student) {
   return date;
 }
 
-function getLiveTimer(student) {
-  if (student.fullDay || !student.currentlyInLibrary || !student.activeSessionStartedAt) {
-    return null;
-  }
-
-  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
-  const totalSeconds = Math.floor(elapsedMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
-}
 
 function getShiftWarning(student) {
   if (!student.currentlyInLibrary) {
@@ -159,7 +147,6 @@ export function StudentsPage() {
             <p className="py-8 text-center text-sm text-slate-500">{searchQuery ? "No students found for this search." : "No students available yet."}</p>
           ) : null}
           {students.map((student) => {
-            const liveTimer = getLiveTimer(student);
             const shiftWarning = getShiftWarning(student);
             return (
               <div key={student.id} className={`rounded-2xl border p-4 ${shiftWarning ? (isMidnightJelly ? "border-rose-300/30 bg-rose-400/12" : "border-rose-200 bg-rose-50/60") : (isMidnightJelly ? "border-white/20 bg-white/8" : "border-slate-200 bg-slate-50/50")}`}>
@@ -176,7 +163,7 @@ export function StudentsPage() {
                 <div className={`mt-2 space-y-1 text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-500"}`}>
                   <p>Seat <span className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{student.seatNumber}</span> · {student.phone}</p>
                   <p className={shiftWarning ? (isMidnightJelly ? "font-semibold text-rose-200" : "font-semibold text-rose-600") : ""}>
-                    {liveTimer || student.shiftTiming || student.shift || "-"}
+                    {student.shiftTiming || student.shift || "-"}
                   </p>
                   {shiftWarning ? <p className={`text-xs ${isMidnightJelly ? "text-rose-200" : "text-rose-500"}`}>{shiftWarning.text}</p> : null}
                 </div>
@@ -202,7 +189,6 @@ export function StudentsPage() {
                         <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Address:</span> {student.address}</p>
                         <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift:</span> {student.shift}</p>
                         <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift Timing:</span> {student.shiftTiming || "-"}</p>
-                        <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
                         {shiftWarning ? <p className={isMidnightJelly ? "text-rose-200" : "text-rose-600"}><span className={`font-semibold ${isMidnightJelly ? "text-rose-100" : "text-rose-700"}`}>Alert:</span> {shiftWarning.text}</p> : null}
                         <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Login ID:</span> {student.loginId || "-"}</p>
                         <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
@@ -230,7 +216,7 @@ export function StudentsPage() {
               <TableHead>Student Name</TableHead>
               <TableHead>Seat Number</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Timer / Shift</TableHead>
+              <TableHead>Shift</TableHead>
               <TableHead>Document Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -244,7 +230,6 @@ export function StudentsPage() {
               </TableRow>
             ) : null}
             {students.map((student) => {
-              const liveTimer = getLiveTimer(student);
               const shiftWarning = getShiftWarning(student);
 
               return (
@@ -266,7 +251,7 @@ export function StudentsPage() {
                 <TableCell className={isMidnightJelly ? "text-violet-100" : "text-slate-700"}>{student.phone}</TableCell>
                 <TableCell>
                   <div className={shiftWarning ? (isMidnightJelly ? "font-semibold text-rose-200" : "font-semibold text-rose-600") : isMidnightJelly ? "text-violet-100/85" : "text-slate-700"}>
-                    {liveTimer || student.shiftTiming || student.shift || "-"}
+                    {student.shiftTiming || student.shift || "-"}
                   </div>
                   {shiftWarning ? <div className={`text-xs ${isMidnightJelly ? "text-rose-200/80" : "text-rose-500"}`}>{shiftWarning.text}</div> : null}
                 </TableCell>
@@ -328,7 +313,6 @@ export function StudentsPage() {
                           <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Address:</span> {student.address}</p>
                           <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift:</span> {student.shift}</p>
                           <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Shift Timing:</span> {student.shiftTiming || "-"}</p>
-                          <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Live Timer:</span> {liveTimer || student.shiftTiming || "-"}</p>
                           {shiftWarning ? <p className={isMidnightJelly ? "text-rose-200" : "text-rose-600"}><span className={`font-semibold ${isMidnightJelly ? "text-rose-100" : "text-rose-700"}`}>Alert:</span> {shiftWarning.text}</p> : null}
                           <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Login ID:</span> {student.loginId || "-"}</p>
                           <p><span className={`font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Password:</span> {student.issuedPassword || "Issued after payment is marked paid"}</p>
