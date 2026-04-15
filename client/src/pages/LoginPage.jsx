@@ -180,7 +180,7 @@ export function LoginPage() {
 
             <Link
               to="/signup"
-              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 text-sm font-extrabold text-emerald-600 transition-all hover:bg-emerald-50 hover:text-teal-700 active:scale-[0.98]"
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white text-sm font-extrabold text-emerald-700 transition-all hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 active:scale-[0.98]"
             >
               Register your library
               <ArrowRight className="h-4 w-4" />
