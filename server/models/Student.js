@@ -107,6 +107,10 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    activeSessionStartedAt: {
+      type: Date,
+      default: null,
+    },
     chatEnabled: {
       type: Boolean,
       default: true,

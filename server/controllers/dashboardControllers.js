@@ -271,6 +271,8 @@ function buildSeatPayload(seat) {
           id: seat.studentId._id,
           name: seat.studentId.name,
           seatNumber: seat.studentId.seatNumber,
+          currentlyInLibrary: seat.studentId.currentlyInLibrary,
+          activeSessionStartedAt: seat.studentId.activeSessionStartedAt || null,
         }
       : null,
   };
@@ -493,6 +495,7 @@ async function checkInStudent(libraryId, student) {
   }
 
   student.currentlyInLibrary = true;
+  student.activeSessionStartedAt = record.checkIn;
   await student.save();
   await syncSeatAssignment(libraryId, student.seatNumber, student._id);
 
@@ -519,6 +522,7 @@ async function checkOutStudent(libraryId, student) {
   const sessionMinutes = record.checkIn ? Math.max(0, Math.round((record.checkOut - record.checkIn) / (1000 * 60))) : 0;
   student.hoursSpent = (student.hoursSpent || 0) + Math.round(sessionMinutes / 60);
   student.currentlyInLibrary = false;
+  student.activeSessionStartedAt = null;
 
   await Promise.all([record.save(), student.save()]);
 
@@ -685,7 +689,7 @@ async function buildLibraryDashboard(libraryId) {
       .sort({ createdAt: -1 })
       .limit(8)
       .lean(),
-    Seat.find({ libraryId }).populate("studentId", "name seatNumber").sort({ number: 1 }).lean(),
+    Seat.find({ libraryId }).populate("studentId", "name seatNumber currentlyInLibrary activeSessionStartedAt").sort({ number: 1 }).lean(),
     SeatChangeRequest.countDocuments({ libraryId, status: "pending" }),
     SeatChangeRequest.find({ libraryId, status: "pending" })
       .populate("studentId", "name phone seatNumber")
