@@ -193,10 +193,11 @@ export function AnalyticsPage() {
       .catch(() => {})
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [fetchAnalytics, period]);
+  }, [fetchAnalytics, period]); // fetchAnalytics is stable (useCallback in AuthContext)
 
   useEffect(() => {
-    if (tab !== "daily") return;
+    if (tab !== "daily") return undefined;
+    if (dailyData) return undefined; // already loaded this session
     let active = true;
     setDailyLoading(true);
     fetchDailyReport()
@@ -204,10 +205,11 @@ export function AnalyticsPage() {
       .catch(() => {})
       .finally(() => { if (active) setDailyLoading(false); });
     return () => { active = false; };
-  }, [tab, fetchDailyReport]);
+  }, [tab, fetchDailyReport, dailyData]);
 
   useEffect(() => {
-    if (tab !== "monthly") return;
+    if (tab !== "monthly") return undefined;
+    if (monthlyData) return undefined; // already loaded this session
     let active = true;
     setMonthlyLoading(true);
     fetchMonthlyReport()
@@ -215,7 +217,7 @@ export function AnalyticsPage() {
       .catch(() => {})
       .finally(() => { if (active) setMonthlyLoading(false); });
     return () => { active = false; };
-  }, [tab, fetchMonthlyReport]);
+  }, [tab, fetchMonthlyReport, monthlyData]);
 
   async function handleSeedDemo() {
     setSeedError("");

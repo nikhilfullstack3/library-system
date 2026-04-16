@@ -7,37 +7,16 @@ const STORAGE_KEY = "library-app-session";
 
 function loadStoredState() {
   if (typeof window === "undefined") {
-    return {
-      libraryData: null,
-      session: null,
-      superAdminData: null,
-      studentData: null,
-    };
+    return { libraryData: null, session: null, superAdminData: null, studentData: null };
   }
-
   try {
     const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY)) || { session: null };
     if (stored.session && !stored.session.token) {
-      return {
-        libraryData: null,
-        session: null,
-        superAdminData: null,
-        studentData: null,
-      };
+      return { libraryData: null, session: null, superAdminData: null, studentData: null };
     }
-    return {
-      libraryData: null,
-      session: stored.session || null,
-      superAdminData: null,
-      studentData: null,
-    };
+    return { libraryData: null, session: stored.session || null, superAdminData: null, studentData: null };
   } catch {
-    return {
-      libraryData: null,
-      session: null,
-      superAdminData: null,
-      studentData: null,
-    };
+    return { libraryData: null, session: null, superAdminData: null, studentData: null };
   }
 }
 
@@ -51,94 +30,67 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState("");
   const socketRef = useRef(null);
 
+  // Stable identifiers extracted so callbacks only re-create on login/logout
+  const libraryId = session?.libraryId ?? null;
+  const studentSelf = session?.studentId ?? null;
+
+  // ─── Stable callbacks ───────────────────────────────────────────────────────
+
   const applyChatAccessUpdate = useCallback((payload = {}) => {
     const participant = payload.participant || payload;
     const participantId = String(participant.id || "");
     const participantType = participant.participantType;
-
-    if (!participantId) {
-      return;
-    }
+    if (!participantId) return;
 
     setLibraryData((current) => {
-      if (!current) {
-        return current;
-      }
-
+      if (!current) return current;
       const listKey = participantType === "student" ? "students" : "librarians";
       const currentList = Array.isArray(current[listKey]) ? current[listKey] : null;
-
-      if (!currentList) {
-        return current;
-      }
-
+      if (!currentList) return current;
       let changed = false;
       const nextList = currentList.map((item) => {
-        if (String(item.id) !== participantId) {
-          return item;
-        }
-
+        if (String(item.id) !== participantId) return item;
         changed = true;
         return { ...item, chatEnabled: Boolean(participant.chatEnabled) };
       });
-
       return changed ? { ...current, [listKey]: nextList } : current;
     });
 
     if (participantType === "student") {
       setStudentData((current) => {
-        if (!current?.student || String(current.student.id) !== participantId) {
-          return current;
-        }
-
-        return {
-          ...current,
-          student: {
-            ...current.student,
-            chatEnabled: Boolean(participant.chatEnabled),
-          },
-        };
+        if (!current?.student || String(current.student.id) !== participantId) return current;
+        return { ...current, student: { ...current.student, chatEnabled: Boolean(participant.chatEnabled) } };
       });
     }
   }, []);
 
   const refreshLibraryData = useCallback(async () => {
-    if (!session?.libraryId) {
-      return null;
-    }
-
-    const dashboard = await apiRequest(`/auth/libraries/${session.libraryId}/dashboard`);
+    if (!libraryId) return null;
+    const dashboard = await apiRequest(`/auth/libraries/${libraryId}/dashboard`);
     const result = { ...dashboard, _fetchedAt: Date.now() };
     setLibraryData(result);
     return result;
-  }, [session?.libraryId]);
+  }, [libraryId]);
 
   const refreshSuperAdminData = useCallback(async (location = "") => {
-    if (session?.role !== "super_admin") {
-      return null;
-    }
-
+    if (session?.role !== "super_admin") return null;
     const query = location ? `?location=${encodeURIComponent(location)}` : "";
     const dashboard = await apiRequest(`/auth/super-admin/dashboard${query}`);
     setSuperAdminData(dashboard);
     return dashboard;
   }, [session?.role]);
 
-  const refreshStudentData = useCallback(async (studentId = session?.studentId) => {
-    if (!session?.libraryId || !studentId) {
-      return null;
-    }
-
-    const dashboard = await apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}/dashboard`);
+  const refreshStudentData = useCallback(async (studentId = studentSelf) => {
+    if (!libraryId || !studentId) return null;
+    const dashboard = await apiRequest(`/auth/libraries/${libraryId}/students/${studentId}/dashboard`);
     setStudentData(dashboard);
     return dashboard;
-  }, [session?.libraryId, session?.studentId]);
+  }, [libraryId, studentSelf]);
+
+  // ─── Session persistence ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
+    if (typeof window === "undefined") return;
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ session }));
   }, [session]);
 
@@ -147,36 +99,25 @@ export function AuthProvider({ children }) {
   }, [session]);
 
   useEffect(() => {
-    if (!session) {
-      return;
-    }
-
-    if ((session.role === "admin" || session.role === "librarian") && !libraryData) {
-      refreshLibraryData();
-    }
-
-    if (session.role === "super_admin" && !superAdminData) {
-      refreshSuperAdminData();
-    }
-
-    if (session.role === "student" && !studentData && session.studentId) {
-      refreshStudentData(session.studentId);
-    }
+    if (!session) return;
+    if ((session.role === "admin" || session.role === "librarian") && !libraryData) refreshLibraryData();
+    if (session.role === "super_admin" && !superAdminData) refreshSuperAdminData();
+    if (session.role === "student" && !studentData && session.studentId) refreshStudentData(session.studentId);
   }, [libraryData, refreshLibraryData, refreshStudentData, refreshSuperAdminData, session, studentData, superAdminData]);
 
-  // Always-on presence listener: patches libraryData.seats in real time when a
-  // student checks in or out, regardless of which page is currently rendered.
+  // ─── Always-on presence listener ─────────────────────────────────────────────
+  // Patches libraryData.seats whenever a student checks in/out, regardless of
+  // which page is mounted. Must be context-level so SeatsPage always sees updates.
+
   useEffect(() => {
-    if (!session?.libraryId) return undefined;
+    if (!libraryId) return undefined;
 
     if (!socketRef.current) {
-      socketRef.current = io(API_ORIGIN, {
-        transports: ["websocket", "polling"],
-      });
+      socketRef.current = io(API_ORIGIN, { transports: ["websocket", "polling"] });
     }
 
     const socket = socketRef.current;
-    socket.emit("library:join", session.libraryId);
+    socket.emit("library:join", libraryId);
 
     const presenceHandler = (updatedSeat) => {
       setLibraryData((current) => {
@@ -191,11 +132,8 @@ export function AuthProvider({ children }) {
     };
 
     socket.on("seat:presence-updated", presenceHandler);
-
-    return () => {
-      socket.off("seat:presence-updated", presenceHandler);
-    };
-  }, [session?.libraryId]);
+    return () => { socket.off("seat:presence-updated", presenceHandler); };
+  }, [libraryId]);
 
   useEffect(() => {
     return () => {
@@ -206,24 +144,15 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function login(role, email, password) {
-    const path = role === "student" ? "/auth/students/login" : role === "super_admin" ? "/auth/super-admin/login" : "/auth/login";
-    const data = await apiRequest(path, {
-      method: "POST",
-      body: { email, password },
-    });
+  // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+  const login = useCallback(async (role, email, password) => {
+    const path = role === "student" ? "/auth/students/login" : role === "super_admin" ? "/auth/super-admin/login" : "/auth/login";
+    const data = await apiRequest(path, { method: "POST", body: { email, password } });
     setAuthError("");
 
     if (role === "student") {
-      const nextSession = {
-        role: "student",
-        studentId: data.session.studentId,
-        libraryId: data.session.libraryId,
-        name: data.student.name,
-        email,
-        token: data.token,
-      };
+      const nextSession = { role: "student", studentId: data.session.studentId, libraryId: data.session.libraryId, name: data.student.name, email, token: data.token };
       setAuthToken(nextSession.token || "");
       setSession(nextSession);
       setStudentData(null);
@@ -232,13 +161,7 @@ export function AuthProvider({ children }) {
     }
 
     if (role === "super_admin") {
-      const nextSession = {
-        role: "super_admin",
-        superAdminId: data.session.superAdminId,
-        name: data.superAdmin.name,
-        email: data.superAdmin.email,
-        token: data.token,
-      };
+      const nextSession = { role: "super_admin", superAdminId: data.session.superAdminId, name: data.superAdmin.name, email: data.superAdmin.email, token: data.token };
       setAuthToken(nextSession.token || "");
       setSession(nextSession);
       setSuperAdminData(null);
@@ -247,254 +170,202 @@ export function AuthProvider({ children }) {
       return nextSession;
     }
 
-    const nextSession = {
-      role: data.session.role,
-      libraryId: data.session.libraryId,
-      librarianId: data.session.librarianId,
-      name: data.librarian.name,
-      email,
-      token: data.token,
-    };
+    const nextSession = { role: data.session.role, libraryId: data.session.libraryId, librarianId: data.session.librarianId, name: data.librarian.name, email, token: data.token };
     setAuthToken(nextSession.token || "");
     setSession(nextSession);
     setLibraryData(null);
     setSuperAdminData(null);
     setStudentData(null);
     return nextSession;
-  }
+  }, []);
 
-  async function fetchSuperAdminLibrary(libraryId) {
-    return apiRequest(`/auth/super-admin/libraries/${libraryId}`);
-  }
+  const logout = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.emit("library:leave", socketRef.current._libraryId);
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    setSession(null);
+    setLibraryData(null);
+    setSuperAdminData(null);
+    setStudentData(null);
+    setAuthError("");
+    setAuthToken("");
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(STORAGE_KEY);
+  }, []);
 
-  async function updateStudentProfile(formData, studentId = session?.studentId) {
-    const data = await apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}/profile`, {
-      method: "PATCH",
-      body: formData,
-    });
+  // ─── Data fetchers (stable — only change when libraryId changes) ──────────────
+
+  const fetchSuperAdminLibrary = useCallback((id) => {
+    return apiRequest(`/auth/super-admin/libraries/${id}`);
+  }, []);
+
+  const updateStudentProfile = useCallback(async (formData, studentId = studentSelf) => {
+    const data = await apiRequest(`/auth/libraries/${libraryId}/students/${studentId}/profile`, { method: "PATCH", body: formData });
     setStudentData(data.dashboard);
     return data;
-  }
+  }, [libraryId, studentSelf]);
 
-  async function changeStudentPassword(password, studentId = session?.studentId) {
-    const data = await apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}/change-password`, {
-      method: "POST",
-      body: { password },
-    });
+  const changeStudentPassword = useCallback(async (password, studentId = studentSelf) => {
+    const data = await apiRequest(`/auth/libraries/${libraryId}/students/${studentId}/change-password`, { method: "POST", body: { password } });
     setStudentData(data.dashboard);
     return data;
-  }
+  }, [libraryId, studentSelf]);
 
-  async function createStudent(formData) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/students`, {
-      method: "POST",
-      body: formData,
-    });
-  }
+  const createStudent = useCallback((formData) => {
+    return apiRequest(`/auth/libraries/${libraryId}/students`, { method: "POST", body: formData });
+  }, [libraryId]);
 
-  async function createLibraryAccount(payload) {
-    const data = await apiRequest("/auth/register", {
-      method: "POST",
-      body: payload,
-    });
-
-    if (session?.role === "super_admin") {
-      refreshSuperAdminData().catch(() => {});
-    }
-
+  const createLibraryAccount = useCallback(async (payload) => {
+    const data = await apiRequest("/auth/register", { method: "POST", body: payload });
+    if (session?.role === "super_admin") refreshSuperAdminData().catch(() => {});
     return data;
-  }
+  }, [refreshSuperAdminData, session?.role]);
 
-  async function updateStudent(studentId, formData) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}`, {
-      method: "PATCH",
-      body: formData,
-    });
-  }
+  const updateStudent = useCallback((studentId, formData) => {
+    return apiRequest(`/auth/libraries/${libraryId}/students/${studentId}`, { method: "PATCH", body: formData });
+  }, [libraryId]);
 
-  async function updateStudentDocumentVerification(studentId, verified) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}/document-verification`, {
-      method: "PATCH",
-      body: { verified },
-    });
-  }
+  const updateStudentDocumentVerification = useCallback((studentId, verified) => {
+    return apiRequest(`/auth/libraries/${libraryId}/students/${studentId}/document-verification`, { method: "PATCH", body: { verified } });
+  }, [libraryId]);
 
-  async function deleteStudent(studentId) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}`, {
-      method: "DELETE",
-    });
-  }
+  const deleteStudent = useCallback((studentId) => {
+    return apiRequest(`/auth/libraries/${libraryId}/students/${studentId}`, { method: "DELETE" });
+  }, [libraryId]);
 
-  async function markPresent(studentId) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/attendance/mark-present`, {
-      method: "POST",
-      body: { studentId },
-    });
-  }
+  const markPresent = useCallback((studentId) => {
+    return apiRequest(`/auth/libraries/${libraryId}/attendance/mark-present`, { method: "POST", body: { studentId } });
+  }, [libraryId]);
 
-  async function fetchAttendanceQrToken() {
-    return apiRequest(`/auth/libraries/${session.libraryId}/attendance/qr-token`);
-  }
+  const fetchAttendanceQrToken = useCallback(() => {
+    return apiRequest(`/auth/libraries/${libraryId}/attendance/qr-token`);
+  }, [libraryId]);
 
-  async function scanAttendanceQr(token, studentId = session?.studentId) {
-    const data = await apiRequest(`/auth/libraries/${session.libraryId}/attendance/scan`, {
-      method: "POST",
-      body: { token },
-    });
-    if (studentId) {
-      setStudentData(data.dashboard);
-    }
+  const scanAttendanceQr = useCallback(async (token, studentId = studentSelf) => {
+    const data = await apiRequest(`/auth/libraries/${libraryId}/attendance/scan`, { method: "POST", body: { token } });
+    if (studentId) setStudentData(data.dashboard);
     return data;
-  }
+  }, [libraryId, studentSelf]);
 
-  async function assignSeat(seatId, phone) {
-    const data = await apiRequest(`/auth/libraries/${session.libraryId}/seats/${seatId}/assign`, {
-      method: "POST",
-      body: { phone },
-    });
+  const assignSeat = useCallback(async (seatId, phone) => {
+    const data = await apiRequest(`/auth/libraries/${libraryId}/seats/${seatId}/assign`, { method: "POST", body: { phone } });
     await refreshLibraryData();
     return data;
-  }
+  }, [libraryId, refreshLibraryData]);
 
-  async function markPaymentPaid(paymentId) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/payments/${paymentId}/mark-paid`, {
-      method: "POST",
-    });
-  }
+  const markPaymentPaid = useCallback((paymentId) => {
+    return apiRequest(`/auth/libraries/${libraryId}/payments/${paymentId}/mark-paid`, { method: "POST" });
+  }, [libraryId]);
 
-  async function createLibrarian(payload) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/librarians`, {
-      method: "POST",
-      body: payload,
-    });
-  }
+  const createLibrarian = useCallback((payload) => {
+    return apiRequest(`/auth/libraries/${libraryId}/librarians`, { method: "POST", body: payload });
+  }, [libraryId]);
 
-  async function fetchChatMessages() {
-    if (!session?.libraryId) {
-      return [];
-    }
-
-    const data = await apiRequest(`/auth/libraries/${session.libraryId}/chat`);
+  const fetchChatMessages = useCallback(async () => {
+    if (!libraryId) return [];
+    const data = await apiRequest(`/auth/libraries/${libraryId}/chat`);
     return data.items || [];
-  }
+  }, [libraryId]);
 
-  async function fetchStudents(options = {}) {
+  const fetchStudents = useCallback((options = {}) => {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
     if (options.limit) params.set("limit", String(options.limit));
     if (options.search) params.set("search", String(options.search));
     const query = params.toString();
-    return apiRequest(`/auth/libraries/${session.libraryId}/students${query ? `?${query}` : ""}`);
-  }
+    return apiRequest(`/auth/libraries/${libraryId}/students${query ? `?${query}` : ""}`);
+  }, [libraryId]);
 
-  async function fetchStudentById(studentId) {
-    return apiRequest(`/auth/libraries/${session.libraryId}/students/${studentId}`);
-  }
+  const fetchStudentById = useCallback((studentId) => {
+    return apiRequest(`/auth/libraries/${libraryId}/students/${studentId}`);
+  }, [libraryId]);
 
-  async function fetchAttendance(options = {}) {
+  const fetchAttendance = useCallback((options = {}) => {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
     if (options.limit) params.set("limit", String(options.limit));
     if (options.dateKey) params.set("dateKey", String(options.dateKey));
     const query = params.toString();
-    return apiRequest(`/auth/libraries/${session.libraryId}/attendance${query ? `?${query}` : ""}`);
-  }
+    return apiRequest(`/auth/libraries/${libraryId}/attendance${query ? `?${query}` : ""}`);
+  }, [libraryId]);
 
-  async function fetchPayments(options = {}) {
+  const fetchPayments = useCallback((options = {}) => {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
     if (options.limit) params.set("limit", String(options.limit));
     if (options.status) params.set("status", String(options.status));
     const query = params.toString();
-    return apiRequest(`/auth/libraries/${session.libraryId}/payments${query ? `?${query}` : ""}`);
-  }
+    return apiRequest(`/auth/libraries/${libraryId}/payments${query ? `?${query}` : ""}`);
+  }, [libraryId]);
 
-  async function fetchAnalytics(period = "6m") {
-    return apiRequest(`/auth/libraries/${session.libraryId}/analytics?period=${encodeURIComponent(period)}`);
-  }
+  const fetchAnalytics = useCallback((period = "6m") => {
+    return apiRequest(`/auth/libraries/${libraryId}/analytics?period=${encodeURIComponent(period)}`);
+  }, [libraryId]);
 
-  async function seedAnalyticsDemo() {
-    return apiRequest(`/auth/libraries/${session.libraryId}/analytics/seed-demo`, { method: "POST" });
-  }
+  const seedAnalyticsDemo = useCallback(() => {
+    return apiRequest(`/auth/libraries/${libraryId}/analytics/seed-demo`, { method: "POST" });
+  }, [libraryId]);
 
-  async function fetchDailyReport() {
-    return apiRequest(`/auth/libraries/${session.libraryId}/reports/daily`);
-  }
+  const fetchDailyReport = useCallback(() => {
+    return apiRequest(`/auth/libraries/${libraryId}/reports/daily`);
+  }, [libraryId]);
 
-  async function fetchMonthlyReport() {
-    return apiRequest(`/auth/libraries/${session.libraryId}/reports/monthly`);
-  }
+  const fetchMonthlyReport = useCallback(() => {
+    return apiRequest(`/auth/libraries/${libraryId}/reports/monthly`);
+  }, [libraryId]);
 
-  async function fetchDocuments(options = {}) {
+  const fetchDocuments = useCallback((options = {}) => {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
     if (options.limit) params.set("limit", String(options.limit));
     if (options.status) params.set("status", String(options.status));
     const query = params.toString();
-    return apiRequest(`/auth/libraries/${session.libraryId}/documents${query ? `?${query}` : ""}`);
-  }
+    return apiRequest(`/auth/libraries/${libraryId}/documents${query ? `?${query}` : ""}`);
+  }, [libraryId]);
 
-  async function sendChatMessage({ attachment, message, tag }) {
+  const sendChatMessage = useCallback(({ attachment, message, tag }) => {
     const formData = new FormData();
     formData.append("message", message);
     formData.append("tag", tag || "");
-    if (attachment) {
-      formData.append("attachment", attachment);
-    }
+    if (attachment) formData.append("attachment", attachment);
+    return apiRequest(`/auth/libraries/${libraryId}/chat`, { method: "POST", body: formData });
+  }, [libraryId]);
 
-    return apiRequest(`/auth/libraries/${session.libraryId}/chat`, {
-      method: "POST",
-      body: formData,
-    });
-  }
-
-  async function updateChatAccess(participantType, participantId, chatEnabled) {
+  const updateChatAccess = useCallback(async (participantType, participantId, chatEnabled) => {
     const data = await apiRequest(
-      `/auth/libraries/${session.libraryId}/chat/access/${participantType}/${participantId}`,
-      {
-        method: "PATCH",
-        body: { chatEnabled },
-      }
+      `/auth/libraries/${libraryId}/chat/access/${participantType}/${participantId}`,
+      { method: "PATCH", body: { chatEnabled } }
     );
-    applyChatAccessUpdate({
-      participant: {
-        id: participantId,
-        participantType,
-        chatEnabled,
-      },
-    });
+    applyChatAccessUpdate({ participant: { id: participantId, participantType, chatEnabled } });
     return data;
-  }
+  }, [libraryId, applyChatAccessUpdate]);
 
-  async function requestSeatChange(seatNumber, reason) {
+  const requestSeatChange = useCallback((seatNumber, reason) => {
     return apiRequest(
-      `/auth/libraries/${session.libraryId}/students/${session.studentId}/seat-change-request`,
+      `/auth/libraries/${libraryId}/students/${studentSelf}/seat-change-request`,
       { method: "POST", body: { seatNumber, reason } }
     );
-  }
+  }, [libraryId, studentSelf]);
 
-  async function resolveSeatChangeRequest(requestId, action) {
+  const resolveSeatChangeRequest = useCallback(async (requestId, action) => {
     const data = await apiRequest(
-      `/auth/libraries/${session.libraryId}/seat-change-requests/${requestId}/resolve`,
+      `/auth/libraries/${libraryId}/seat-change-requests/${requestId}/resolve`,
       { method: "POST", body: { action } }
     );
     await refreshLibraryData();
     return data;
-  }
+  }, [libraryId, refreshLibraryData]);
 
-  function subscribeToLibraryEvents(handlers = {}) {
-    if (!session?.libraryId) {
-      return () => {};
-    }
+  const subscribeToLibraryEvents = useCallback((handlers = {}) => {
+    if (!libraryId) return () => {};
 
     if (!socketRef.current) {
-      socketRef.current = io(API_ORIGIN, {
-        transports: ["websocket", "polling"],
-      });
+      socketRef.current = io(API_ORIGIN, { transports: ["websocket", "polling"] });
     }
 
     const socket = socketRef.current;
-    socket.emit("library:join", session.libraryId);
+    socket.emit("library:join", libraryId);
 
     const messageHandler = (payload) => handlers.onMessage?.(payload);
     const accessHandler = (payload) => {
@@ -503,6 +374,7 @@ export function AuthProvider({ children }) {
     };
     const seatRequestHandler = (payload) => handlers.onSeatChangeRequest?.(payload);
     const seatResolvedHandler = (payload) => handlers.onSeatChangeResolved?.(payload);
+
     socket.on("chat:message", messageHandler);
     socket.on("chat:access-updated", accessHandler);
     socket.on("seat:change-request", seatRequestHandler);
@@ -513,82 +385,71 @@ export function AuthProvider({ children }) {
       socket.off("chat:access-updated", accessHandler);
       socket.off("seat:change-request", seatRequestHandler);
       socket.off("seat:change-resolved", seatResolvedHandler);
-      socket.emit("library:leave", session.libraryId);
+      socket.emit("library:leave", libraryId);
     };
-  }
+  }, [libraryId, applyChatAccessUpdate]);
 
-  function logout() {
-    if (socketRef.current && session?.libraryId) {
-      socketRef.current.emit("library:leave", session.libraryId);
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-    setSession(null);
-    setLibraryData(null);
-    setSuperAdminData(null);
-    setStudentData(null);
-    setAuthError("");
-    setAuthToken("");
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(STORAGE_KEY);
-    }
-  }
+  // ─── Context value ────────────────────────────────────────────────────────────
+  // All functions are now useCallback — they only change identity on login/logout,
+  // not on every libraryData update. This prevents spurious page refetches.
 
-  const value = useMemo(
-    () => ({
-      assignSeat,
-      authError,
-      changeStudentPassword,
-      requestSeatChange,
-      resolveSeatChangeRequest,
-      createLibraryAccount,
-      createLibrarian,
-      createStudent,
-      deleteStudent,
-      fetchAnalytics,
-      seedAnalyticsDemo,
-      fetchDailyReport,
-      fetchMonthlyReport,
-      fetchAttendance,
-      fetchAttendanceQrToken,
-      fetchDocuments,
-      fetchChatMessages,
-      fetchPayments,
-      fetchStudentById,
-      fetchStudents,
-      libraryData,
-      login,
-      logout,
-      markPaymentPaid,
-      markPresent,
-      refreshLibraryData,
-      refreshSuperAdminData,
-      refreshStudentData,
-      scanAttendanceQr,
-      session,
-      sendChatMessage,
-      setAuthError,
-      subscribeToLibraryEvents,
-      superAdminData,
-      studentData,
-      updateStudentProfile,
-      updateChatAccess,
-      updateStudentDocumentVerification,
-      updateStudent,
-      fetchSuperAdminLibrary,
-    }),
-    [authError, libraryData, refreshLibraryData, refreshStudentData, refreshSuperAdminData, session, studentData, superAdminData]
-  );
+  const value = useMemo(() => ({
+    assignSeat,
+    authError,
+    changeStudentPassword,
+    createLibrarian,
+    createLibraryAccount,
+    createStudent,
+    deleteStudent,
+    fetchAnalytics,
+    fetchAttendance,
+    fetchAttendanceQrToken,
+    fetchChatMessages,
+    fetchDailyReport,
+    fetchDocuments,
+    fetchMonthlyReport,
+    fetchPayments,
+    fetchStudentById,
+    fetchStudents,
+    fetchSuperAdminLibrary,
+    libraryData,
+    login,
+    logout,
+    markPaymentPaid,
+    markPresent,
+    refreshLibraryData,
+    refreshSuperAdminData,
+    refreshStudentData,
+    requestSeatChange,
+    resolveSeatChangeRequest,
+    scanAttendanceQr,
+    seedAnalyticsDemo,
+    sendChatMessage,
+    session,
+    setAuthError,
+    studentData,
+    subscribeToLibraryEvents,
+    superAdminData,
+    updateChatAccess,
+    updateStudent,
+    updateStudentDocumentVerification,
+    updateStudentProfile,
+  }), [
+    assignSeat, authError, changeStudentPassword, createLibrarian, createLibraryAccount,
+    createStudent, deleteStudent, fetchAnalytics, fetchAttendance, fetchAttendanceQrToken,
+    fetchChatMessages, fetchDailyReport, fetchDocuments, fetchMonthlyReport, fetchPayments,
+    fetchStudentById, fetchStudents, fetchSuperAdminLibrary, libraryData, login, logout,
+    markPaymentPaid, markPresent, refreshLibraryData, refreshSuperAdminData, refreshStudentData,
+    requestSeatChange, resolveSeatChangeRequest, scanAttendanceQr, seedAnalyticsDemo,
+    sendChatMessage, session, studentData, subscribeToLibraryEvents, superAdminData,
+    updateChatAccess, updateStudent, updateStudentDocumentVerification, updateStudentProfile,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const value = useContext(AuthContext);
-
-  if (!value) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-
+  if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }

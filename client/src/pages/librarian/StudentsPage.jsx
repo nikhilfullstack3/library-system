@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AddStudentDialog } from "../../components/students/AddStudentDialog";
@@ -16,6 +16,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { pageCache } from "../../lib/pageCache";
 
 const SHIFT_END_WARNING_MS = 30 * 60 * 1000;
 
@@ -94,21 +95,29 @@ export function StudentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const [studentResponse, setStudentResponse] = useState({ items: [], pagination: null });
+  const [studentResponse, setStudentResponse] = useState(
+    () => pageCache.get("students-1-") || { items: [], pagination: null }
+  );
   const [updatingVerificationId, setUpdatingVerificationId] = useState("");
   const searchQuery = searchParams.get("search")?.trim() || "";
 
-  function loadStudents(nextPage = page, search = searchQuery) {
-    return fetchStudents({ page: nextPage, limit: 25, search }).then(setStudentResponse);
-  }
+  const loadStudents = useCallback((nextPage = page, search = searchQuery) => {
+    return fetchStudents({ page: nextPage, limit: 25, search }).then((data) => {
+      pageCache.set(`students-${nextPage}-${search}`, data);
+      setStudentResponse(data);
+    });
+  }, [fetchStudents, page, searchQuery]);
 
   useEffect(() => {
     setPage(1);
   }, [searchQuery]);
 
   useEffect(() => {
+    // Show cached data for this page/search immediately, then refresh in background
+    const cached = pageCache.get(`students-${page}-${searchQuery}`);
+    if (cached) setStudentResponse(cached);
     loadStudents(page, searchQuery).catch(() => {});
-  }, [fetchStudents, page, searchQuery]);
+  }, [page, searchQuery, loadStudents]);
 
   const students = studentResponse.items || [];
   const pagination = studentResponse.pagination;

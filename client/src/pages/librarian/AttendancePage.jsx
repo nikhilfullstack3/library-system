@@ -1,5 +1,5 @@
 import { ChevronRight, QrCode } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { pageCache } from "../../lib/pageCache";
 
 function getTodayDateKey() {
   return new Date().toISOString().slice(0, 10);
@@ -18,37 +19,48 @@ export function AttendancePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [attendanceResponse, setAttendanceResponse] = useState({ items: [], pagination: null });
-  const [todayAttendance, setTodayAttendance] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [attendanceResponse, setAttendanceResponse] = useState(
+    () => pageCache.get("attendance-1") || { items: [], pagination: null }
+  );
+  const [todayAttendance, setTodayAttendance] = useState(
+    () => pageCache.get("attendance-today") || []
+  );
+  const [students, setStudents] = useState(
+    () => pageCache.get("attendance-students") || []
+  );
   const [qrToken, setQrToken] = useState("");
   const todayDateKey = getTodayDateKey();
 
-  function loadAttendance(nextPage = page) {
-    return fetchAttendance({ page: nextPage, limit: 25 }).then(setAttendanceResponse);
-  }
-
-  function loadTodayAttendance() {
-    return fetchAttendance({ page: 1, limit: 100, dateKey: todayDateKey }).then((data) => {
-      setTodayAttendance(data.items || []);
+  const loadAttendance = useCallback((nextPage = page) => {
+    return fetchAttendance({ page: nextPage, limit: 25 }).then((data) => {
+      pageCache.set(`attendance-${nextPage}`, data);
+      setAttendanceResponse(data);
     });
-  }
-
-  useEffect(() => {
-    loadAttendance(page).catch(() => {});
   }, [fetchAttendance, page]);
 
-  useEffect(() => {
-    fetchStudents({ page: 1, limit: 20 }).then((data) => setStudents(data.items || [])).catch(() => {});
-  }, [fetchStudents]);
-
-  useEffect(() => {
-    fetchAttendanceQrToken().then((data) => setQrToken(data.token || "")).catch(() => {});
-  }, [fetchAttendanceQrToken]);
-
-  useEffect(() => {
-    loadTodayAttendance().catch(() => {});
+  const loadTodayAttendance = useCallback(() => {
+    return fetchAttendance({ page: 1, limit: 100, dateKey: todayDateKey }).then((data) => {
+      const items = data.items || [];
+      pageCache.set("attendance-today", items);
+      setTodayAttendance(items);
+    });
   }, [fetchAttendance, todayDateKey]);
+
+  // Fetch attendance list + today's present students together
+  useEffect(() => {
+    loadAttendance(page).catch(() => {});
+    loadTodayAttendance().catch(() => {});
+  }, [page, loadAttendance, loadTodayAttendance]);
+
+  // Fetch students list + QR token once on mount (stable deps, won't re-fire)
+  useEffect(() => {
+    fetchStudents({ page: 1, limit: 20 }).then((data) => {
+      const items = data.items || [];
+      pageCache.set("attendance-students", items);
+      setStudents(items);
+    }).catch(() => {});
+    fetchAttendanceQrToken().then((data) => setQrToken(data.token || "")).catch(() => {});
+  }, [fetchStudents, fetchAttendanceQrToken]);
 
   const presentStudents = todayAttendance.filter((item) => item.isActive && item.studentId);
 
