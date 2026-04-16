@@ -53,7 +53,7 @@ function getInitials(name) {
 }
 
 export function ChatPage() {
-  const { fetchChatMessages, libraryData, refreshLibraryData, sendChatMessage, session, subscribeToLibraryEvents, updateChatAccess } = useAuth();
+  const { fetchChatMessages, libraryData, sendChatMessage, session, subscribeToLibraryEvents, updateChatAccess } = useAuth();
   const { isMidnightJelly } = useTheme();
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -75,14 +75,13 @@ export function ChatPage() {
   useEffect(() => {
     return subscribeToLibraryEvents({
       onAccessUpdate: async () => {
-        await refreshLibraryData();
         await loadMessages();
       },
       onMessage: async () => {
         await loadMessages();
       },
     });
-  }, [loadMessages, refreshLibraryData, subscribeToLibraryEvents]);
+  }, [loadMessages, subscribeToLibraryEvents]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -133,7 +132,6 @@ export function ChatPage() {
     setUpdatingParticipantId(`${participantType}-${participantId}`);
     try {
       await updateChatAccess(participantType, participantId, nextChatEnabled);
-      await refreshLibraryData();
       await loadMessages();
     } finally {
       setUpdatingParticipantId("");

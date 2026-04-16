@@ -71,7 +71,7 @@ function getAttendanceDisplay(student) {
   if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt) {
     return student?.shiftTiming || student?.shift || "-";
   }
-  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
+  const elapsedMs = Math.max(0, (student?._now || Date.now()) - new Date(student.activeSessionStartedAt).getTime());
   const totalSeconds = Math.floor(elapsedMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -92,6 +92,72 @@ function getShiftWarning(student) {
   return `Your shift will end in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s.`;
 }
 
+function LiveShiftWarning({ mj, student }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!student?.currentlyInLibrary) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [student?.currentlyInLibrary, student?.shiftEndTime, student?.fullDay]);
+
+  if (!student?.currentlyInLibrary) {
+    return null;
+  }
+
+  const shiftEndDate = getShiftEndDate(student);
+  if (!shiftEndDate) {
+    return null;
+  }
+
+  const remainingMs = shiftEndDate.getTime() - now;
+  let text = null;
+
+  if (remainingMs <= 0) {
+    text = "Your shift has ended. Please check out now.";
+  } else if (remainingMs <= SHIFT_END_WARNING_MS) {
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    text = `Your shift will end in ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s.`;
+  }
+
+  if (!text) {
+    return null;
+  }
+
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${
+      mj ? "border-rose-800 bg-rose-900/30 text-rose-300" : "border-rose-200 bg-rose-50 text-rose-700"
+    }`}>
+      <AlertCircle className="h-4 w-4 shrink-0" />
+      {text}
+    </div>
+  );
+}
+
+function LiveAttendanceValue({ student }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [student?.activeSessionStartedAt, student?.currentlyInLibrary]);
+
+  return (
+    <p className="mt-2 font-mono text-base font-bold text-white/90">
+      {getAttendanceDisplay({ ...student, _now: now })}
+    </p>
+  );
+}
+
 export function StudentDashboardPage() {
   const { fetchChatMessages, logout, refreshStudentData, requestSeatChange, scanAttendanceQr, sendChatMessage, session, studentData, subscribeToLibraryEvents } = useAuth();
   const { isMidnightJelly, toggleMidnightJelly } = useTheme();
@@ -102,7 +168,6 @@ export function StudentDashboardPage() {
   const [chatAttachment, setChatAttachment] = useState(null);
   const [sending, setSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [, setTimerTick] = useState(0);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [seatNumberInput, setSeatNumberInput] = useState("");
   const [seatReason, setSeatReason] = useState("");
@@ -154,7 +219,10 @@ export function StudentDashboardPage() {
   useEffect(() => {
     if (!session?.studentId) return () => {};
     return subscribeToLibraryEvents({
-      onAccessUpdate: async () => { await loadMessages(); },
+      onAccessUpdate: async () => {
+        const messages = await fetchChatMessages();
+        setChatMessages(messages);
+      },
       onMessage: async () => { await loadMessages(); },
       onSeatChangeResolved: async (payload) => {
         if (String(payload?.studentId) === String(session?.studentId)) {
@@ -164,11 +232,6 @@ export function StudentDashboardPage() {
       },
     });
   }, [loadMessages, refreshStudentData, session?.studentId, subscribeToLibraryEvents]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setTimerTick((v) => v + 1), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   async function handleSeatChangeRequest(e) {
     e.preventDefault();
@@ -295,9 +358,6 @@ export function StudentDashboardPage() {
   useEffect(() => () => stopCamera(), []);
 
   const student = studentData?.student;
-  const attendanceDisplay = getAttendanceDisplay(student);
-  const shiftWarning = getShiftWarning(student);
-
   const mj = isMidnightJelly;
 
   return (
@@ -391,14 +451,7 @@ export function StudentDashboardPage() {
               <div className="space-y-4 pb-8 pt-4">
 
                 {/* Shift warning */}
-                {shiftWarning ? (
-                  <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${
-                    mj ? "border-rose-800 bg-rose-900/30 text-rose-300" : "border-rose-200 bg-rose-50 text-rose-700"
-                  }`}>
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {shiftWarning}
-                  </div>
-                ) : null}
+                <LiveShiftWarning mj={mj} student={student} />
 
                 {/* Seat change pending banner */}
                 {studentData?.pendingSeatChangeRequest ? (
@@ -423,9 +476,7 @@ export function StudentDashboardPage() {
                       <p className="mt-2 text-3xl font-extrabold tracking-tight text-white">
                         {student?.currentlyInLibrary ? "Checked In" : "Checked Out"}
                       </p>
-                      {student?.currentlyInLibrary ? (
-                        <p className="mt-2 font-mono text-base font-bold text-white/90">{attendanceDisplay}</p>
-                      ) : null}
+                      {student?.currentlyInLibrary ? <LiveAttendanceValue student={student} /> : null}
                     </div>
                     <div className="rounded-2xl bg-white/15 p-3 ring-1 ring-white/20">
                       <Clock className="h-7 w-7" />

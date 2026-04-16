@@ -8,6 +8,8 @@ import {
   FlaskConical,
   IndianRupee,
   RefreshCw,
+  Sun,
+  Trophy,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -26,6 +28,8 @@ const TABS = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "revenue", label: "Revenue", icon: IndianRupee },
   { id: "renewals", label: "Renewals", icon: RefreshCw },
+  { id: "daily", label: "Daily", icon: Sun },
+  { id: "monthly", label: "Monthly", icon: Calendar },
 ];
 
 function StatCard({ icon: Icon, label, value, sub, trend, color = "emerald" }) {
@@ -145,8 +149,28 @@ function timeAgo(dateStr) {
   return `${days}d ago`;
 }
 
+function formatDuration(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+function formatTime(hour) {
+  if (hour === null || hour === undefined) return "—";
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const h = hour % 12 || 12;
+  return `${h}:00 ${suffix}`;
+}
+
+function formatDateKey(dateKey) {
+  if (!dateKey) return "";
+  const [, , day] = dateKey.split("-");
+  return `${parseInt(day, 10)}`;
+}
+
 export function AnalyticsPage() {
-  const { fetchAnalytics, seedAnalyticsDemo, session } = useAuth();
+  const { fetchAnalytics, seedAnalyticsDemo, fetchDailyReport, fetchMonthlyReport, session } = useAuth();
   const { isMidnightJelly } = useTheme();
   const [period, setPeriod] = useState("6m");
   const [tab, setTab] = useState("overview");
@@ -154,6 +178,10 @@ export function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState("");
+  const [dailyData, setDailyData] = useState(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [monthlyData, setMonthlyData] = useState(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   const isAdmin = session?.role === "admin" || session?.role === "super_admin";
 
@@ -166,6 +194,28 @@ export function AnalyticsPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [fetchAnalytics, period]);
+
+  useEffect(() => {
+    if (tab !== "daily") return;
+    let active = true;
+    setDailyLoading(true);
+    fetchDailyReport()
+      .then((result) => { if (active) setDailyData(result); })
+      .catch(() => {})
+      .finally(() => { if (active) setDailyLoading(false); });
+    return () => { active = false; };
+  }, [tab, fetchDailyReport]);
+
+  useEffect(() => {
+    if (tab !== "monthly") return;
+    let active = true;
+    setMonthlyLoading(true);
+    fetchMonthlyReport()
+      .then((result) => { if (active) setMonthlyData(result); })
+      .catch(() => {})
+      .finally(() => { if (active) setMonthlyLoading(false); });
+    return () => { active = false; };
+  }, [tab, fetchMonthlyReport]);
 
   async function handleSeedDemo() {
     setSeedError("");
@@ -229,23 +279,25 @@ export function AnalyticsPage() {
               {seedError && <p className="text-[11px] font-medium text-rose-500">{seedError}</p>}
             </div>
           )}
-        <div className={`flex gap-1.5 rounded-xl border p-1 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                period === p.value
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : isMidnightJelly
-                    ? "text-violet-100/70 hover:bg-white/10 hover:text-white"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {tab !== "daily" && tab !== "monthly" && (
+          <div className={`flex gap-1.5 rounded-xl border p-1 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  period === p.value
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : isMidnightJelly
+                      ? "text-violet-100/70 hover:bg-white/10 hover:text-white"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
         </div>
       </div>
 
@@ -477,6 +529,232 @@ export function AnalyticsPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Daily Report Tab ── */}
+      {tab === "daily" && (
+        <div className="space-y-5">
+          {dailyLoading && !dailyData ? (
+            <div className="flex min-h-[200px] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className={`text-sm font-medium ${isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}`}>
+                  {dailyData?.date || new Date().toISOString().slice(0, 10)}
+                </p>
+                {dailyData?.summary?.busiestHour !== null && dailyData?.summary?.busiestHour !== undefined && (
+                  <div className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium ${isMidnightJelly ? "border-white/10 bg-white/10 text-violet-100/70" : "border-slate-200 bg-white text-slate-500"}`}>
+                    <Clock className="h-3.5 w-3.5" />
+                    Peak: {formatTime(dailyData.summary.busiestHour)}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatCard
+                  icon={Users}
+                  label="Check-ins Today"
+                  value={dailyData?.summary?.totalCheckIns ?? 0}
+                  color="emerald"
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Active Now"
+                  value={dailyData?.summary?.activeSessions ?? 0}
+                  sub={`of ${dailyData?.summary?.totalSeats ?? 0} seats`}
+                  color="sky"
+                />
+                <StatCard
+                  icon={Clock}
+                  label="Hours Logged"
+                  value={`${dailyData?.summary?.totalHours ?? 0}h ${dailyData?.summary?.totalMinutesRem ?? 0}m`}
+                  color="amber"
+                />
+                <StatCard
+                  icon={IndianRupee}
+                  label="Revenue Today"
+                  value={`Rs ${formatRupees(dailyData?.summary?.todayRevenue ?? 0)}`}
+                  sub={`${dailyData?.summary?.paymentsCollected ?? 0} payments`}
+                  color="emerald"
+                />
+              </div>
+
+              <div className={`rounded-2xl border ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+                <div className={`border-b px-5 py-4 ${isMidnightJelly ? "border-white/10" : "border-slate-100"}`}>
+                  <h3 className={`text-sm font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Today's Sessions</h3>
+                  <p className={`mt-0.5 text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>{dailyData?.sessions?.length ?? 0} students visited</p>
+                </div>
+                <div className={`divide-y ${isMidnightJelly ? "divide-white/10" : "divide-slate-100"}`}>
+                  {(dailyData?.sessions ?? []).length > 0 ? (
+                    dailyData.sessions.map((s) => (
+                      <div key={s.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.active ? (isMidnightJelly ? "bg-cyan-400/15" : "bg-emerald-50") : (isMidnightJelly ? "bg-white/10" : "bg-slate-100")}`}>
+                          <Users className={`h-4 w-4 ${s.active ? (isMidnightJelly ? "text-cyan-300" : "text-emerald-600") : (isMidnightJelly ? "text-violet-100/50" : "text-slate-400")}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{s.studentName}</p>
+                          <p className={`text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>
+                            Seat {s.seatNumber} · in at {new Date(s.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {s.active ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Active</span>
+                          ) : (
+                            <p className={`text-xs font-medium ${isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}`}>{formatDuration(s.durationMins)}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className={`py-8 text-center text-sm ${isMidnightJelly ? "text-violet-100/40" : "text-slate-400"}`}>No check-ins today</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Monthly Report Tab ── */}
+      {tab === "monthly" && (
+        <div className="space-y-5">
+          {monthlyLoading && !monthlyData ? (
+            <div className="flex min-h-[200px] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+            </div>
+          ) : (
+            <>
+              <p className={`text-sm font-medium ${isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}`}>
+                {monthlyData?.monthName ?? ""}
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatCard
+                  icon={Users}
+                  label="Unique Students"
+                  value={monthlyData?.summary?.uniqueStudents ?? 0}
+                  color="sky"
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Total Sessions"
+                  value={monthlyData?.summary?.totalSessions ?? 0}
+                  sub={`avg ${monthlyData?.summary?.avgDailySessions ?? 0}/day`}
+                  color="emerald"
+                />
+                <StatCard
+                  icon={Clock}
+                  label="Total Hours"
+                  value={`${monthlyData?.summary?.totalHours ?? 0}h`}
+                  color="amber"
+                />
+                <StatCard
+                  icon={IndianRupee}
+                  label="Revenue Collected"
+                  value={`Rs ${formatRupees(monthlyData?.summary?.collected ?? 0)}`}
+                  sub={`${monthlyData?.summary?.collectionRate ?? 0}% collected`}
+                  color="emerald"
+                />
+              </div>
+
+              {/* Daily attendance chart */}
+              {(monthlyData?.dailyChart ?? []).length > 0 && (
+                <div className={`rounded-2xl border p-5 ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+                  <h3 className={`mb-4 text-sm font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Daily Attendance</h3>
+                  <div className="flex items-end gap-1 overflow-x-auto pb-2" style={{ minHeight: 120 }}>
+                    {(() => {
+                      const chart = monthlyData.dailyChart;
+                      const maxSessions = Math.max(...chart.map((d) => d.sessions), 1);
+                      return chart.map((d) => {
+                        const height = Math.max((d.sessions / maxSessions) * 100, d.sessions > 0 ? 4 : 0);
+                        return (
+                          <div key={d.date} className="flex min-w-[20px] flex-1 flex-col items-center gap-1">
+                            <div
+                              className="w-full rounded-t-sm bg-gradient-to-t from-sky-500 to-sky-400 transition-all duration-500"
+                              style={{ height }}
+                              title={`${d.date}: ${d.sessions} sessions`}
+                            />
+                            <span className={`text-[9px] font-medium ${isMidnightJelly ? "text-violet-100/40" : "text-slate-400"}`}>{d.day}</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                {/* Top students */}
+                <div className={`rounded-2xl border ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+                  <div className={`border-b px-5 py-4 ${isMidnightJelly ? "border-white/10" : "border-slate-100"}`}>
+                    <h3 className={`text-sm font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Top Attendees</h3>
+                    <p className={`mt-0.5 text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>Most sessions this month</p>
+                  </div>
+                  <div className={`divide-y ${isMidnightJelly ? "divide-white/10" : "divide-slate-100"}`}>
+                    {(monthlyData?.topStudents ?? []).length > 0 ? (
+                      monthlyData.topStudents.map((s, i) => (
+                        <div key={i} className="flex items-center gap-3 px-5 py-3">
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold ${i === 0 ? (isMidnightJelly ? "bg-yellow-400/20 text-yellow-300" : "bg-yellow-50 text-yellow-600") : (isMidnightJelly ? "bg-white/10 text-violet-100/60" : "bg-slate-100 text-slate-500")}`}>
+                            {i === 0 ? <Trophy className="h-4 w-4" /> : `#${i + 1}`}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-semibold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>{s.name}</p>
+                            <p className={`text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>Seat {s.seatNumber}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-bold ${isMidnightJelly ? "text-cyan-300" : "text-sky-600"}`}>{s.sessions} sessions</p>
+                            <p className={`text-[10px] ${isMidnightJelly ? "text-violet-100/40" : "text-slate-400"}`}>{formatDuration(s.minutes)}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className={`py-8 text-center text-sm ${isMidnightJelly ? "text-violet-100/40" : "text-slate-400"}`}>No sessions this month</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment summary */}
+                <div className={`rounded-2xl border ${isMidnightJelly ? "border-white/10 bg-white/10" : "border-slate-200 bg-white"}`}>
+                  <div className={`border-b px-5 py-4 ${isMidnightJelly ? "border-white/10" : "border-slate-100"}`}>
+                    <h3 className={`text-sm font-bold ${isMidnightJelly ? "text-violet-50" : "text-slate-900"}`}>Payment Summary</h3>
+                    <p className={`mt-0.5 text-xs ${isMidnightJelly ? "text-violet-100/50" : "text-slate-400"}`}>This month's collections</p>
+                  </div>
+                  <div className="space-y-4 p-5">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-600"}`}>Collected</span>
+                      <span className="text-sm font-bold text-emerald-600">Rs {(monthlyData?.summary?.collected ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm ${isMidnightJelly ? "text-violet-100/70" : "text-slate-600"}`}>Pending</span>
+                      <span className="text-sm font-bold text-amber-600">Rs {(monthlyData?.summary?.pending ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div className={`border-t pt-4 ${isMidnightJelly ? "border-white/10" : "border-slate-100"}`}>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className={`text-xs font-medium ${isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}`}>Collection Rate</span>
+                        <span className={`text-xs font-bold ${(monthlyData?.summary?.collectionRate ?? 0) >= 70 ? "text-emerald-600" : "text-amber-600"}`}>
+                          {monthlyData?.summary?.collectionRate ?? 0}%
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${(monthlyData?.summary?.collectionRate ?? 0) >= 70 ? "bg-emerald-500" : "bg-amber-400"}`}
+                          style={{ width: `${monthlyData?.summary?.collectionRate ?? 0}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}>{monthlyData?.summary?.paidCount ?? 0} paid</span>
+                      <span className={isMidnightJelly ? "text-violet-100/60" : "text-slate-500"}>{monthlyData?.summary?.pendingCount ?? 0} pending</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

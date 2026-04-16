@@ -96,7 +96,6 @@ export function StudentsPage() {
   const [page, setPage] = useState(1);
   const [studentResponse, setStudentResponse] = useState({ items: [], pagination: null });
   const [updatingVerificationId, setUpdatingVerificationId] = useState("");
-  const [, setTimerTick] = useState(0);
   const searchQuery = searchParams.get("search")?.trim() || "";
 
   function loadStudents(nextPage = page, search = searchQuery) {
@@ -110,11 +109,6 @@ export function StudentsPage() {
   useEffect(() => {
     loadStudents(page, searchQuery).catch(() => {});
   }, [fetchStudents, page, searchQuery]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setTimerTick((value) => value + 1), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const students = studentResponse.items || [];
   const pagination = studentResponse.pagination;

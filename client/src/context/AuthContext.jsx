@@ -16,11 +16,7 @@ function loadStoredState() {
   }
 
   try {
-    const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY)) || {
-      libraryData: null,
-      session: null,
-      studentData: null,
-    };
+    const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY)) || { session: null };
     if (stored.session && !stored.session.token) {
       return {
         libraryData: null,
@@ -29,7 +25,12 @@ function loadStoredState() {
         studentData: null,
       };
     }
-    return stored;
+    return {
+      libraryData: null,
+      session: stored.session || null,
+      superAdminData: null,
+      studentData: null,
+    };
   } catch {
     return {
       libraryData: null,
@@ -49,6 +50,57 @@ export function AuthProvider({ children }) {
   const [studentData, setStudentData] = useState(stored.studentData);
   const [authError, setAuthError] = useState("");
   const socketRef = useRef(null);
+
+  const applyChatAccessUpdate = useCallback((payload = {}) => {
+    const participant = payload.participant || payload;
+    const participantId = String(participant.id || "");
+    const participantType = participant.participantType;
+
+    if (!participantId) {
+      return;
+    }
+
+    setLibraryData((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const listKey = participantType === "student" ? "students" : "librarians";
+      const currentList = Array.isArray(current[listKey]) ? current[listKey] : null;
+
+      if (!currentList) {
+        return current;
+      }
+
+      let changed = false;
+      const nextList = currentList.map((item) => {
+        if (String(item.id) !== participantId) {
+          return item;
+        }
+
+        changed = true;
+        return { ...item, chatEnabled: Boolean(participant.chatEnabled) };
+      });
+
+      return changed ? { ...current, [listKey]: nextList } : current;
+    });
+
+    if (participantType === "student") {
+      setStudentData((current) => {
+        if (!current?.student || String(current.student.id) !== participantId) {
+          return current;
+        }
+
+        return {
+          ...current,
+          student: {
+            ...current.student,
+            chatEnabled: Boolean(participant.chatEnabled),
+          },
+        };
+      });
+    }
+  }, []);
 
   const refreshLibraryData = useCallback(async () => {
     if (!session?.libraryId) {
@@ -87,16 +139,8 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    window.sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        session,
-        libraryData,
-        superAdminData,
-        studentData,
-      })
-    );
-  }, [libraryData, session, studentData, superAdminData]);
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ session }));
+  }, [session]);
 
   useEffect(() => {
     setAuthToken(session?.token || "");
@@ -340,6 +384,14 @@ export function AuthProvider({ children }) {
     return apiRequest(`/auth/libraries/${session.libraryId}/analytics/seed-demo`, { method: "POST" });
   }
 
+  async function fetchDailyReport() {
+    return apiRequest(`/auth/libraries/${session.libraryId}/reports/daily`);
+  }
+
+  async function fetchMonthlyReport() {
+    return apiRequest(`/auth/libraries/${session.libraryId}/reports/monthly`);
+  }
+
   async function fetchDocuments(options = {}) {
     const params = new URLSearchParams();
     if (options.page) params.set("page", String(options.page));
@@ -364,13 +416,21 @@ export function AuthProvider({ children }) {
   }
 
   async function updateChatAccess(participantType, participantId, chatEnabled) {
-    return apiRequest(
+    const data = await apiRequest(
       `/auth/libraries/${session.libraryId}/chat/access/${participantType}/${participantId}`,
       {
         method: "PATCH",
         body: { chatEnabled },
       }
     );
+    applyChatAccessUpdate({
+      participant: {
+        id: participantId,
+        participantType,
+        chatEnabled,
+      },
+    });
+    return data;
   }
 
   async function requestSeatChange(seatNumber, reason) {
@@ -404,7 +464,10 @@ export function AuthProvider({ children }) {
     socket.emit("library:join", session.libraryId);
 
     const messageHandler = (payload) => handlers.onMessage?.(payload);
-    const accessHandler = (payload) => handlers.onAccessUpdate?.(payload);
+    const accessHandler = (payload) => {
+      applyChatAccessUpdate(payload);
+      handlers.onAccessUpdate?.(payload);
+    };
     const seatRequestHandler = (payload) => handlers.onSeatChangeRequest?.(payload);
     const seatResolvedHandler = (payload) => handlers.onSeatChangeResolved?.(payload);
 
@@ -452,6 +515,8 @@ export function AuthProvider({ children }) {
       deleteStudent,
       fetchAnalytics,
       seedAnalyticsDemo,
+      fetchDailyReport,
+      fetchMonthlyReport,
       fetchAttendance,
       fetchAttendanceQrToken,
       fetchDocuments,

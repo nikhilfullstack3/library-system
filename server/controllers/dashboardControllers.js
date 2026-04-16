@@ -2398,6 +2398,185 @@ exports.getAnalytics = async (req, res) => {
   }
 };
 
+exports.getDailyReport = async (req, res) => {
+  try {
+    const libraryId = req.params.libraryId;
+    const libraryObjectId = toObjectId(libraryId);
+    const today = toDateKey();
+
+    const startOfDay = new Date(today);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const [todayAttendance, activeSessions, todayPayments, totalSeats, occupiedSeats] =
+      await Promise.all([
+        Attendance.find({ libraryId: libraryObjectId, dateKey: today })
+          .populate("studentId", "name seatNumber")
+          .sort({ checkIn: -1 })
+          .lean(),
+        Attendance.countDocuments({ libraryId: libraryObjectId, dateKey: today, checkOut: null }),
+        Payment.find({ libraryId, status: "paid", paidAt: { $gte: startOfDay, $lte: endOfDay } }).lean(),
+        Seat.countDocuments({ libraryId }),
+        Seat.countDocuments({ libraryId, status: "occupied" }),
+      ]);
+
+    let totalMinutes = 0;
+    const sessions = todayAttendance.map((a) => {
+      const checkIn = new Date(a.checkIn);
+      const checkOut = a.checkOut ? new Date(a.checkOut) : new Date();
+      const mins = Math.round((checkOut - checkIn) / 60000);
+      totalMinutes += mins;
+      return {
+        id: a._id,
+        studentName: a.studentId?.name || "Unknown",
+        seatNumber: a.seatNumber,
+        checkIn: a.checkIn,
+        checkOut: a.checkOut,
+        durationMins: mins,
+        active: !a.checkOut,
+      };
+    });
+
+    const hourCounts = {};
+    for (const a of todayAttendance) {
+      const h = new Date(a.checkIn).getHours();
+      hourCounts[h] = (hourCounts[h] || 0) + 1;
+    }
+    const busiestHour =
+      Object.keys(hourCounts).length > 0
+        ? Number(Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0][0])
+        : null;
+
+    const todayRevenue = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    return res.json({
+      date: today,
+      summary: {
+        totalCheckIns: todayAttendance.length,
+        activeSessions,
+        totalHours: Math.floor(totalMinutes / 60),
+        totalMinutesRem: totalMinutes % 60,
+        todayRevenue,
+        paymentsCollected: todayPayments.length,
+        occupiedSeats,
+        totalSeats,
+        busiestHour,
+      },
+      sessions,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to load daily report", error: error.message });
+  }
+};
+
+exports.getMonthlyReport = async (req, res) => {
+  try {
+    const libraryId = req.params.libraryId;
+    const libraryObjectId = toObjectId(libraryId);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const [monthAttendance, dailyBreakdown, monthPayments, uniqueStudentIds] = await Promise.all([
+      Attendance.find({ libraryId: libraryObjectId, dateKey: { $regex: `^${monthPrefix}` } })
+        .populate("studentId", "name seatNumber")
+        .lean(),
+      Attendance.aggregate([
+        { $match: { libraryId: libraryObjectId, dateKey: { $regex: `^${monthPrefix}` } } },
+        {
+          $group: {
+            _id: "$dateKey",
+            sessions: { $sum: 1 },
+            uniqueStudents: { $addToSet: "$studentId" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Payment.find({ libraryId, createdAt: { $gte: startOfMonth, $lte: endOfMonth } }).lean(),
+      Attendance.distinct("studentId", {
+        libraryId: libraryObjectId,
+        dateKey: { $regex: `^${monthPrefix}` },
+      }),
+    ]);
+
+    let totalMinutes = 0;
+    for (const a of monthAttendance) {
+      const checkIn = new Date(a.checkIn);
+      const checkOut = a.checkOut ? new Date(a.checkOut) : new Date();
+      totalMinutes += Math.round((checkOut - checkIn) / 60000);
+    }
+
+    const collected = monthPayments
+      .filter((p) => p.status === "paid")
+      .reduce((s, p) => s + p.amount, 0);
+    const pending = monthPayments
+      .filter((p) => p.status !== "paid")
+      .reduce((s, p) => s + p.amount, 0);
+    const paidCount = monthPayments.filter((p) => p.status === "paid").length;
+    const totalPayCount = monthPayments.length;
+
+    const studentMap = {};
+    for (const a of monthAttendance) {
+      const id = String(a.studentId?._id || a.studentId);
+      if (!studentMap[id]) {
+        studentMap[id] = {
+          name: a.studentId?.name || "Unknown",
+          seatNumber: a.seatNumber,
+          sessions: 0,
+          minutes: 0,
+        };
+      }
+      studentMap[id].sessions += 1;
+      const checkIn = new Date(a.checkIn);
+      const checkOut = a.checkOut ? new Date(a.checkOut) : new Date();
+      studentMap[id].minutes += Math.round((checkOut - checkIn) / 60000);
+    }
+    const topStudents = Object.values(studentMap)
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 5);
+
+    const dailyChart = dailyBreakdown.map((d) => ({
+      date: d._id,
+      day: Number(d._id.split("-")[2]),
+      sessions: d.sessions,
+      uniqueStudents: d.uniqueStudents.length,
+    }));
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+
+    return res.json({
+      month: monthPrefix,
+      monthName: `${monthNames[month - 1]} ${year}`,
+      summary: {
+        totalSessions: monthAttendance.length,
+        uniqueStudents: uniqueStudentIds.length,
+        totalHours: Math.floor(totalMinutes / 60),
+        avgDailySessions:
+          dailyChart.length > 0
+            ? Math.round(monthAttendance.length / dailyChart.length)
+            : 0,
+        collected,
+        pending,
+        collectionRate:
+          totalPayCount > 0 ? Math.round((paidCount / totalPayCount) * 100) : 0,
+        paidCount,
+        pendingCount: totalPayCount - paidCount,
+      },
+      dailyChart,
+      topStudents,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Unable to load monthly report", error: error.message });
+  }
+};
+
 exports.autoFreeSeat = async (req, res) => {
   try {
     const { libraryId, studentId } = req.params;

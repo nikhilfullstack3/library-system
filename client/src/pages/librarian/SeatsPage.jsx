@@ -3,16 +3,40 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
-function getLiveTimer(student) {
+function getLiveTimer(student, now = Date.now()) {
   if (!student || student.fullDay || !student.currentlyInLibrary || !student.activeSessionStartedAt) {
     return null;
   }
-  const elapsedMs = Math.max(0, Date.now() - new Date(student.activeSessionStartedAt).getTime());
+  const elapsedMs = Math.max(0, now - new Date(student.activeSessionStartedAt).getTime());
   const totalSeconds = Math.floor(elapsedMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function LiveSeatTimer({ isMidnightJelly, student }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!student?.currentlyInLibrary || !student?.activeSessionStartedAt || student.fullDay) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [student?.activeSessionStartedAt, student?.currentlyInLibrary, student?.fullDay]);
+
+  const liveTimer = getLiveTimer(student, now);
+  if (!liveTimer) {
+    return null;
+  }
+
+  return (
+    <p className={`mt-1 text-xs font-semibold tabular-nums ${isMidnightJelly ? "text-emerald-300" : "text-emerald-700"}`}>
+      {liveTimer}
+    </p>
+  );
 }
 
 export function SeatsPage() {
@@ -26,12 +50,6 @@ export function SeatsPage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [seatError, setSeatError] = useState("");
   const [seatSubmitting, setSeatSubmitting] = useState(false);
-  const [, setTimerTick] = useState(0);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setTimerTick((v) => v + 1), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const filteredSeats = useMemo(() => {
     return seats.filter((seat) => {
@@ -135,7 +153,6 @@ export function SeatsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredSeats.map((seat) => {
             const occupied = seat.status === "occupied";
-            const liveTimer = occupied ? getLiveTimer(seat.student) : null;
             return (
               <button
                 key={seat.id}
@@ -173,11 +190,7 @@ export function SeatsPage() {
                 <p className={`mt-4 text-sm font-semibold ${isMidnightJelly ? "text-violet-100/85" : "text-slate-700"}`}>
                   {occupied ? seat.student?.name : "Available for assignment"}
                 </p>
-                {liveTimer ? (
-                  <p className={`mt-1 text-xs font-semibold tabular-nums ${isMidnightJelly ? "text-emerald-300" : "text-emerald-700"}`}>
-                    {liveTimer}
-                  </p>
-                ) : null}
+                {occupied ? <LiveSeatTimer isMidnightJelly={isMidnightJelly} student={seat.student} /> : null}
                 <p className={`mt-1 text-xs ${isMidnightJelly ? "text-violet-100/55 group-hover:text-cyan-200" : "text-slate-400 group-hover:text-emerald-600"}`}>
                   Tap to {occupied ? "reassign or clear" : "assign student"}
                 </p>

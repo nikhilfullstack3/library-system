@@ -31,6 +31,8 @@ const {
   resolveSeatChangeRequest,
   getAnalytics,
   seedAnalyticsDemo,
+  getDailyReport,
+  getMonthlyReport,
   autoFreeSeat,
 } = require("../controllers/dashboardControllers");
 const { loginLibrarian, loginStudent, loginSuperAdmin } = require("../controllers/loginControllers");
@@ -107,6 +109,8 @@ router.post("/libraries/:libraryId/students/:studentId/auto-free-seat", requireA
 router.post("/libraries/:libraryId/seat-change-requests/:requestId/resolve", requireAuth, requireRole("admin", "librarian", "super_admin"), resolveSeatChangeRequest);
 router.get("/libraries/:libraryId/analytics", requireAuth, requireRole("admin", "librarian", "super_admin"), getAnalytics);
 router.post("/libraries/:libraryId/analytics/seed-demo", requireAuth, requireRole("admin", "super_admin"), seedAnalyticsDemo);
+router.get("/libraries/:libraryId/reports/daily", requireAuth, requireRole("admin", "librarian", "super_admin"), getDailyReport);
+router.get("/libraries/:libraryId/reports/monthly", requireAuth, requireRole("admin", "librarian", "super_admin"), getMonthlyReport);
 
 router.post("/students/register", requireAuth, requireRole("admin", "librarian", "super_admin"), upload.array("documents", 5), registerStudent);
 router.post("/librarians/register", requireAuth, requireRole("admin", "super_admin"), registerLibrarian);
