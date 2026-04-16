@@ -164,6 +164,39 @@ export function AuthProvider({ children }) {
     }
   }, [libraryData, refreshLibraryData, refreshStudentData, refreshSuperAdminData, session, studentData, superAdminData]);
 
+  // Always-on presence listener: patches libraryData.seats in real time when a
+  // student checks in or out, regardless of which page is currently rendered.
+  useEffect(() => {
+    if (!session?.libraryId) return undefined;
+
+    if (!socketRef.current) {
+      socketRef.current = io(API_ORIGIN, {
+        transports: ["websocket", "polling"],
+      });
+    }
+
+    const socket = socketRef.current;
+    socket.emit("library:join", session.libraryId);
+
+    const presenceHandler = (updatedSeat) => {
+      setLibraryData((current) => {
+        if (!current?.seats) return current;
+        return {
+          ...current,
+          seats: current.seats.map((s) =>
+            String(s.id) === String(updatedSeat.id) ? updatedSeat : s
+          ),
+        };
+      });
+    };
+
+    socket.on("seat:presence-updated", presenceHandler);
+
+    return () => {
+      socket.off("seat:presence-updated", presenceHandler);
+    };
+  }, [session?.libraryId]);
+
   useEffect(() => {
     return () => {
       if (socketRef.current) {
@@ -470,30 +503,16 @@ export function AuthProvider({ children }) {
     };
     const seatRequestHandler = (payload) => handlers.onSeatChangeRequest?.(payload);
     const seatResolvedHandler = (payload) => handlers.onSeatChangeResolved?.(payload);
-    const presenceHandler = (updatedSeat) => {
-      setLibraryData((current) => {
-        if (!current?.seats) return current;
-        return {
-          ...current,
-          seats: current.seats.map((s) =>
-            String(s.id) === String(updatedSeat.id) ? updatedSeat : s
-          ),
-        };
-      });
-    };
-
     socket.on("chat:message", messageHandler);
     socket.on("chat:access-updated", accessHandler);
     socket.on("seat:change-request", seatRequestHandler);
     socket.on("seat:change-resolved", seatResolvedHandler);
-    socket.on("seat:presence-updated", presenceHandler);
 
     return () => {
       socket.off("chat:message", messageHandler);
       socket.off("chat:access-updated", accessHandler);
       socket.off("seat:change-request", seatRequestHandler);
       socket.off("seat:change-resolved", seatResolvedHandler);
-      socket.off("seat:presence-updated", presenceHandler);
       socket.emit("library:leave", session.libraryId);
     };
   }
