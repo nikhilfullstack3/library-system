@@ -1924,6 +1924,13 @@ exports.markPresent = async (req, res) => {
 
     const record = await checkInStudent(req.params.libraryId, student);
 
+    const updatedSeat = await Seat.findOne({ libraryId: req.params.libraryId, studentId: student._id })
+      .populate("studentId", "name seatNumber currentlyInLibrary activeSessionStartedAt")
+      .lean();
+    if (updatedSeat) {
+      emitLibraryEvent(req.params.libraryId, "seat:presence-updated", buildSeatPayload(updatedSeat));
+    }
+
     return res.json({
       message: "Attendance marked successfully",
       attendance: buildAttendancePayload(record),
@@ -1982,6 +1989,13 @@ exports.scanAttendanceQr = async (req, res) => {
     const attendance = wasInLibrary
       ? await checkOutStudent(libraryId, student)
       : await checkInStudent(libraryId, student);
+
+    const updatedSeat = await Seat.findOne({ libraryId, studentId: student._id })
+      .populate("studentId", "name seatNumber currentlyInLibrary activeSessionStartedAt")
+      .lean();
+    if (updatedSeat) {
+      emitLibraryEvent(libraryId, "seat:presence-updated", buildSeatPayload(updatedSeat));
+    }
 
     const dashboard = await getStudentDashboard(student._id);
 

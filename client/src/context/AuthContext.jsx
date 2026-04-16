@@ -470,17 +470,30 @@ export function AuthProvider({ children }) {
     };
     const seatRequestHandler = (payload) => handlers.onSeatChangeRequest?.(payload);
     const seatResolvedHandler = (payload) => handlers.onSeatChangeResolved?.(payload);
+    const presenceHandler = (updatedSeat) => {
+      setLibraryData((current) => {
+        if (!current?.seats) return current;
+        return {
+          ...current,
+          seats: current.seats.map((s) =>
+            String(s.id) === String(updatedSeat.id) ? updatedSeat : s
+          ),
+        };
+      });
+    };
 
     socket.on("chat:message", messageHandler);
     socket.on("chat:access-updated", accessHandler);
     socket.on("seat:change-request", seatRequestHandler);
     socket.on("seat:change-resolved", seatResolvedHandler);
+    socket.on("seat:presence-updated", presenceHandler);
 
     return () => {
       socket.off("chat:message", messageHandler);
       socket.off("chat:access-updated", accessHandler);
       socket.off("seat:change-request", seatRequestHandler);
       socket.off("seat:change-resolved", seatResolvedHandler);
+      socket.off("seat:presence-updated", presenceHandler);
       socket.emit("library:leave", session.libraryId);
     };
   }
