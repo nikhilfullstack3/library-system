@@ -23,6 +23,7 @@ const SuperAdminRegistrationPage = lazy(() => import("./pages/super-admin/SuperA
 const StudentDashboardPage = lazy(() => import("./pages/student/StudentDashboardPage").then((module) => ({ default: module.StudentDashboardPage })));
 const StudentProfilePage = lazy(() => import("./pages/student/StudentProfilePage").then((module) => ({ default: module.StudentProfilePage })));
 const TermsPage = lazy(() => import("./pages/TermsPage").then((module) => ({ default: module.TermsPage })));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage").then((module) => ({ default: module.PrivacyPolicyPage })));
 const LibrarySignupPage = lazy(() => import("./pages/LibrarySignupPage").then((module) => ({ default: module.LibrarySignupPage })));
 
 function ProtectedRoute({ allow, children }) {
@@ -98,6 +99,7 @@ function AppRoutes() {
         />
 
         <Route element={<TermsPage />} path="/terms" />
+        <Route element={<PrivacyPolicyPage />} path="/privacy" />
         <Route element={<LibrarySignupPage />} path="/signup" />
         <Route element={<Navigate replace to="/login" />} path="*" />
       </Routes>
