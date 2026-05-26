@@ -12,6 +12,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
+          <Stack.Screen name="child-safety" />
           <Stack.Screen name="super-admin" />
           <Stack.Screen name="super-admin-library/[libraryId]" />
           <Stack.Screen name="student-attendance-scan" />
@@ -20,7 +21,7 @@ export default function RootLayout() {
           <Stack.Screen name="(librarian)" />
           <Stack.Screen name="(student)" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </AuthProvider>
     </ThemeProvider>
   );

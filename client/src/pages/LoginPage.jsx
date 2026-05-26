@@ -170,6 +170,10 @@ export function LoginPage() {
               <Link to="/terms" className="font-semibold text-emerald-600 hover:text-teal-700 underline underline-offset-2">
                 Terms &amp; Conditions
               </Link>
+              {" "}and our{" "}
+              <Link to="/child-safety" className="font-semibold text-emerald-600 hover:text-teal-700 underline underline-offset-2">
+                Child Safety Policy
+              </Link>
             </p>
 
             <div className="mt-4 flex items-center gap-3">

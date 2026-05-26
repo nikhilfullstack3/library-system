@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect } from "expo-router";
+import { Redirect, router } from "expo-router";
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -64,7 +64,7 @@ export default function LoginScreen() {
     try {
       await login(role, email.trim(), password);
     } catch (error: any) {
-      setAuthError(error?.message || "Unable to login");
+      setAuthError(error?.message || "Sign-in could not be completed right now.");
     } finally {
       setSubmitting(false);
     }
@@ -96,8 +96,8 @@ export default function LoginScreen() {
 
             {/* Title */}
             <View style={styles.titleWrap}>
-              <Text style={styles.title}>Welcome back</Text>
-              <Text style={styles.subtitle}>Sign in to continue to your dashboard</Text>
+              <Text style={styles.title}>Welcome to LibHook</Text>
+              <Text style={styles.subtitle}>Sign in to access your library workspace.</Text>
             </View>
 
             {/* Role tabs */}
@@ -126,7 +126,7 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                placeholder={role === "student" ? "student email or login ID" : "you@example.com"}
+                placeholder={role === "student" ? "Student email or login ID" : "admin@library.com"}
                 placeholderTextColor={C.placeholder}
               />
             </View>
@@ -185,14 +185,20 @@ export default function LoginScreen() {
 
             {/* Terms */}
             <Text style={styles.terms}>
-              By signing in you agree to our{" "}
+              By continuing, you agree to our{" "}
               <Text style={styles.termsLink}>Terms &amp; Conditions</Text>
+              {" "}and our{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/child-safety")}>
+                Child Safety Policy
+              </Text>
             </Text>
 
             {/* Register */}
             <Text style={styles.terms}>
-              New here?{" "}
-              <Text style={styles.termsLink}>Register your library</Text>
+              Need a new library workspace?{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/register-library") }>
+                Create your account
+              </Text>
             </Text>
           </View>
         </ScrollView>
